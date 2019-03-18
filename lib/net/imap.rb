@@ -1524,7 +1524,7 @@ module Net
         params = {}
       end
       context = SSLContext.new
-      context.set_params(params)
+      context.set_params(**params)
       if defined?(VerifyCallbackProc)
         context.verify_callback = VerifyCallbackProc
       end

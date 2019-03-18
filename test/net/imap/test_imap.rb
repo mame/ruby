@@ -117,7 +117,7 @@ class IMAPTest < Test::Unit::TestCase
       imap = nil
       starttls_test do |port|
         imap = Net::IMAP.new("localhost", :port => port)
-        imap.starttls(:ca_file => CA_FILE)
+        imap.starttls({ :ca_file => CA_FILE })
         imap
       end
     rescue SystemCallError

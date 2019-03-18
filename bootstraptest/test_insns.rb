@@ -413,10 +413,10 @@ tests = [
 ]
 
 # normal path
-tests.compact.each {|(insn, expr, *a)| assert_equal 'true', expr, insn, *a }
+tests.compact.each {|(insn, expr, *a, kw)| assert_equal 'true', expr, insn, *a, **(kw || {}) }
 
 # with trace
-tests.compact.each {|(insn, expr, *a)|
+tests.compact.each {|(insn, expr, *a, kw)|
   progn = "set_trace_func(proc{})\n" + expr
-  assert_equal 'true', progn, 'trace_' + insn, *a
+  assert_equal 'true', progn, 'trace_' + insn, *a, **(kw || {})
 }

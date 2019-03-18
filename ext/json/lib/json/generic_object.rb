@@ -33,8 +33,8 @@ module JSON
         end
       end
 
-      def load(source, proc = nil, opts = {})
-        result = ::JSON.load(source, proc, opts.merge(:object_class => self))
+      def load(source, proc = nil, **opts)
+        result = ::JSON.load(source, proc, **opts, object_class: self)
         result.nil? ? new : result
       end
 

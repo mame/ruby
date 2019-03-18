@@ -910,7 +910,8 @@ class ERB
 
   # Render a template on a new toplevel binding with local variables specified
   # by a Hash object.
-  def result_with_hash(hash)
+  def result_with_hash(hash = {}, **kw)
+    hash = hash.merge(kw)
     b = new_toplevel(hash.keys)
     hash.each_pair do |key, value|
       b.local_variable_set(key, value)

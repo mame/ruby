@@ -10,11 +10,11 @@ module JSON
     #
     # The _opts_ argument is passed through to generate/parse respectively.
     # See generate and parse for their documentation.
-    def [](object, opts = {})
+    def [](object, **opts)
       if object.respond_to? :to_str
-        JSON.parse(object.to_str, opts)
+        JSON.parse(object.to_str, **opts)
       else
-        JSON.generate(object, opts)
+        JSON.generate(object, **opts)
       end
     end
 
@@ -152,8 +152,8 @@ module JSON
   #   defaults to false.
   # * *object_class*: Defaults to Hash
   # * *array_class*: Defaults to Array
-  def parse(source, opts = {})
-    Parser.new(source, opts).parse
+  def parse(source, **opts)
+    Parser.new(source, **opts).parse
   end
 
   # Parse the JSON document _source_ into a Ruby data structure and return it.
@@ -205,12 +205,13 @@ module JSON
   # See also the fast_generate for the fastest creation method with the least
   # amount of sanity checks, and the pretty_generate method for some
   # defaults for pretty output.
-  def generate(obj, opts = nil)
+  def generate(obj, opts = nil, **kw)
     if State === opts
       state, opts = opts, nil
     else
       state = SAFE_STATE_PROTOTYPE.dup
     end
+    opts = kw unless kw.empty?
     if opts
       if opts.respond_to? :to_hash
         opts = opts.to_hash
@@ -267,12 +268,13 @@ module JSON
   #
   # The _opts_ argument can be used to configure the generator. See the
   # generate method for a more detailed explanation.
-  def pretty_generate(obj, opts = nil)
+  def pretty_generate(obj, opts = nil, **kw)
     if State === opts
       state, opts = opts, nil
     else
       state = PRETTY_STATE_PROTOTYPE.dup
     end
+    opts ||= kw unless kw.empty?
     if opts
       if opts.respond_to? :to_hash
         opts = opts.to_hash
@@ -320,7 +322,7 @@ module JSON
   #
   # This method is part of the implementation of the load/dump interface of
   # Marshal and YAML.
-  def load(source, proc = nil, options = {})
+  def load(source, proc = nil, **options)
     opts = load_default_options.merge options
     if source.respond_to? :to_str
       source = source.to_str
@@ -332,7 +334,7 @@ module JSON
     if opts[:allow_blank] && (source.nil? || source.empty?)
       source = 'null'
     end
-    result = parse(source, opts)
+    result = parse(source, **opts)
     recurse_proc(result, &proc) if proc
     result
   end
@@ -391,7 +393,7 @@ module JSON
     end
     opts = JSON.dump_default_options
     opts = opts.merge(:max_nesting => limit) if limit
-    result = generate(obj, opts)
+    result = generate(obj, **opts)
     if anIO
       anIO.write result
       anIO
@@ -435,11 +437,11 @@ module ::Kernel
   #
   # The _opts_ argument is passed through to generate/parse respectively. See
   # generate and parse for their documentation.
-  def JSON(object, *args)
+  def JSON(object, *args, **kw)
     if object.respond_to? :to_str
-      JSON.parse(object.to_str, args.first)
+      JSON.parse(object.to_str, *args, **kw)
     else
-      JSON.generate(object, args.first)
+      JSON.generate(object, *args, **kw)
     end
   end
 end

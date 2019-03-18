@@ -158,16 +158,16 @@ module Net
     # If a block is given, it is passed the +FTP+ object, which will be closed
     # when the block finishes, or when an exception is raised.
     #
-    def FTP.open(host, *args)
+    def FTP.open(host, *args, **kw)
       if block_given?
-        ftp = new(host, *args)
+        ftp = new(host, *args, **kw)
         begin
           yield ftp
         ensure
           ftp.close
         end
       else
-        new(host, *args)
+        new(host, *args, **kw)
       end
     end
 
@@ -226,7 +226,7 @@ module Net
         end
         ssl_params = options[:ssl] == true ? {} : options[:ssl]
         @ssl_context = SSLContext.new
-        @ssl_context.set_params(ssl_params)
+        @ssl_context.set_params(**ssl_params)
         if defined?(VerifyCallbackProc)
           @ssl_context.verify_callback = VerifyCallbackProc
         end
@@ -1456,7 +1456,7 @@ module Net
 
     if defined?(OpenSSL::SSL::SSLSocket)
       class BufferedSSLSocket <  BufferedSocket
-        def initialize(*args)
+        def initialize(*args, **kw)
           super
           @is_shutdown = false
         end

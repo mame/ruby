@@ -217,7 +217,7 @@ class RDoc::Generator::Darkfish
     options = { :verbose => $DEBUG_RDOC, :noop => @dry_run }
 
     BUILTIN_STYLE_ITEMS.each do |item|
-      install_rdoc_static_file @template_dir + item, "./#{item}", options
+      install_rdoc_static_file @template_dir + item, "./#{item}", **options
     end
 
     @options.template_stylesheets.each do |stylesheet|
@@ -230,7 +230,7 @@ class RDoc::Generator::Darkfish
 
       dst = Pathname.new(path).relative_path_from @template_dir
 
-      install_rdoc_static_file @template_dir + path, dst, options
+      install_rdoc_static_file @template_dir + path, dst, **options
     end
   end
 
@@ -269,7 +269,7 @@ class RDoc::Generator::Darkfish
 
     @options.static_path.each do |path|
       unless File.directory? path then
-        FileUtils.install path, @outputdir, fu_options.merge(:mode => 0644)
+        FileUtils.install path, @outputdir, **fu_options, :mode => 0644
         next
       end
 
@@ -278,9 +278,9 @@ class RDoc::Generator::Darkfish
           dest_file = @outputdir + entry
 
           if File.directory? entry then
-            FileUtils.mkdir_p entry, fu_options
+            FileUtils.mkdir_p entry, **fu_options
           else
-            FileUtils.install entry, dest_file, fu_options.merge(:mode => 0644)
+            FileUtils.install entry, dest_file, **fu_options, :mode => 0644
           end
         end
       end
@@ -581,20 +581,20 @@ class RDoc::Generator::Darkfish
     raise error
   end
 
-  def install_rdoc_static_file source, destination, options # :nodoc:
+  def install_rdoc_static_file source, destination, **options # :nodoc:
     return unless source.exist?
 
     begin
-      FileUtils.mkdir_p File.dirname(destination), options
+      FileUtils.mkdir_p File.dirname(destination), **options
 
       begin
-        FileUtils.ln source, destination, options
+        FileUtils.ln source, destination, **options
       rescue Errno::EEXIST
         FileUtils.rm destination
         retry
       end
     rescue
-      FileUtils.cp source, destination, options
+      FileUtils.cp source, destination, **options
     end
   end
 

@@ -1131,7 +1131,7 @@ $stderr = $stdout; raise "\x82\xa0"') do |outs, errs, status|
       alias_method :warn2, :warn
       remove_method :warn
 
-      define_method(:warn) do |str|
+      define_method(:warn) do |str, **|
         warning << str
       end
     end

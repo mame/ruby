@@ -203,8 +203,8 @@ class TestRubyYieldGen < Test::Unit::TestCase
     result
   end
 
-  def emu_return_args(*vs)
-    vs
+  def emu_return_args(*vs, **kw)
+    kw.empty? ? vs : vs + [kw]
   end
 
   def emu_eval_args(args)

@@ -254,8 +254,8 @@ class TestKeywordArguments < Test::Unit::TestCase
                   [:keyrest, :kw], [:block, :b]], p6.parameters)
   end
 
-  def m1(*args)
-    yield(*args)
+  def m1(*args, **kw)
+    yield(*args, **kw)
   end
 
   def test_block
@@ -274,14 +274,19 @@ class TestKeywordArguments < Test::Unit::TestCase
     bug7665 = '[ruby-core:51278]'
     bug8463 = '[ruby-core:55203] [Bug #8463]'
     expect = [*%w[foo bar], {zzz: 42}]
-    assert_equal(expect, rest_keyrest(*expect), bug7665)
-    pr = proc {|*args, **opt| next *args, opt}
-    assert_equal(expect, pr.call(*expect), bug7665)
-    assert_equal(expect, pr.call(expect), bug8463)
-    pr = proc {|a, *b, **opt| next a, *b, opt}
-    assert_equal(expect, pr.call(expect), bug8463)
-    pr = proc {|a, **opt| next a, opt}
-    assert_equal(expect.values_at(0, -1), pr.call(expect), bug8463)
+    begin
+      verbose_bak, $VERBOSE = $VERBOSE, nil
+      assert_equal(expect, rest_keyrest(*expect), bug7665)
+      pr = proc {|*args, **opt| next *args, opt}
+      assert_equal(expect, pr.call(*expect), bug7665)
+      assert_equal(expect, pr.call(expect), bug8463)
+      pr = proc {|a, *b, **opt| next a, *b, opt}
+      assert_equal(expect, pr.call(expect), bug8463)
+      pr = proc {|a, **opt| next a, opt}
+      assert_equal(expect.values_at(0, -1), pr.call(expect), bug8463)
+    ensure
+      $VERBOSE = verbose_bak
+    end
   end
 
   def test_bare_kwrest
@@ -466,7 +471,12 @@ class TestKeywordArguments < Test::Unit::TestCase
         [a, b, c, d, e, f, g]
       end
     end
-    assert_equal([1, 2, 1, [], {:f=>5}, 2, {}], a.new.foo(1, 2, f:5), bug8993)
+    begin
+      verbose_bak, $VERBOSE = $VERBOSE, nil
+      assert_equal([1, 2, 1, [], {:f=>5}, 2, {}], a.new.foo(1, 2, f:5), bug8993)
+    ensure
+      $VERBOSE = verbose_bak
+    end
   end
 
   def test_splat_keyword_nondestructive
@@ -499,8 +509,8 @@ class TestKeywordArguments < Test::Unit::TestCase
     o = Object.new
     def o.to_hash() { k: 9 } end
     assert_equal([1, 42, [], o, :key, {}, nil], f9(1, o))
-    assert_equal([1, 9], m1(1, o) {|a, k: 0| break [a, k]}, bug10016)
-    assert_equal([1, 9], m1(1, o, &->(a, k: 0) {break [a, k]}), bug10016)
+    assert_equal([1, 9], m1(1, **o) {|a, k: 0| break [a, k]}, bug10016)
+    assert_equal([1, 9], m1(1, **o, &->(a, k: 0) {break [a, k]}), bug10016)
   end
 
   def test_splat_hash
@@ -511,7 +521,7 @@ class TestKeywordArguments < Test::Unit::TestCase
     def m.f3(**a) a; end
     def m.f4(*a) a; end
     o = {a: 1}
-    assert_raise_with_message(ArgumentError, /unknown keyword: a/) {
+    assert_raise_with_message(ArgumentError, /unknown keyword: :a/) {
       m.f(**o)
     }
     o = {}
@@ -531,12 +541,15 @@ class TestKeywordArguments < Test::Unit::TestCase
     assert_warning('', 'splat to kwrest') do
       assert_equal({a: 42}, m.f3(**o))
     end
-    assert_warning('', 'splat to rest') do
+    assert_warning(/is used as the last parameter/, 'splat to rest') do # XXX
       assert_equal([{a: 42}], m.f4(**o))
     end
 
-    assert_warning('') do
+    assert_warning(/is used as the last parameter/) do # XXX
       assert_equal({a: 42}, m.f2("a".to_sym => 42), '[ruby-core:82291] [Bug #13793]')
+    end
+    assert_warning('') do # XXX
+      assert_equal({a: 42}, m.f2({ "a".to_sym => 42 }), '[ruby-core:82291] [Bug #13793]')
     end
 
     o = {}
@@ -583,14 +596,14 @@ class TestKeywordArguments < Test::Unit::TestCase
         bar(k1: 1)
       end
     end
-    assert_raise_with_message(ArgumentError, /unknown keyword: k1/, bug10413) {
+    assert_raise_with_message(ArgumentError, /unknown keyword: :k1/, bug10413) {
       o.foo {raise "unreachable"}
     }
   end
 
   def test_unknown_keyword
     bug13004 = '[ruby-dev:49893] [Bug #13004]'
-    assert_raise_with_message(ArgumentError, /unknown keyword: invalid-argument/, bug13004) {
+    assert_raise_with_message(ArgumentError, /unknown keyword: :"invalid-argument"/, bug13004) {
       [].sample(random: nil, "invalid-argument": nil)
     }
   end
@@ -645,9 +658,9 @@ class TestKeywordArguments < Test::Unit::TestCase
       assert_equal(1, obj.foo)
       obj.set_foo 2
       assert_equal(2, obj.foo)
-      obj.set_foo(x: 1, y: 2)
+      obj.set_foo({x: 1, y: 2})
       assert_equal({x: 1, y: 2}, obj.foo)
-      obj.set_foo(x: 1, y: 2, **h)
+      obj.set_foo({x: 1, y: 2, **h})
       assert_equal({x: 1, y: 2, **h}, obj.foo)
     }
   end

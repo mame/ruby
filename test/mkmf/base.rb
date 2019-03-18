@@ -147,7 +147,7 @@ end
 class TestMkmf
   include TestMkmf::Base
 
-  def assert_separately(args, src, *rest)
-    super(args + ["-r#{__FILE__}"], "extend TestMkmf::Base; setup\nEND{teardown}\n#{src}", *rest)
+  def assert_separately(args, src, *rest, **kw)
+    super(args + ["-r#{__FILE__}"], "extend TestMkmf::Base; setup\nEND{teardown}\n#{src}", *rest, **kw)
   end
 end

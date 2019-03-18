@@ -26,15 +26,15 @@ module Kernel
   #
   # We can accept URIs and strings that begin with http://, https:// and
   # ftp://. In these cases, the opened file object is extended by OpenURI::Meta.
-  def open(name, *rest, &block) # :doc:
+  def open(name, *rest, **kw, &block) # :doc:
     if name.respond_to?(:open)
-      name.open(*rest, &block)
+      name.open(*rest, **kw, &block)
     elsif name.respond_to?(:to_str) &&
           %r{\A[A-Za-z][A-Za-z0-9+\-\.]*://} =~ name &&
           (uri = URI.parse(name)).respond_to?(:open)
-      uri.open(*rest, &block)
+      uri.open(*rest, **kw, &block)
     else
-      open_uri_original_open(name, *rest, &block)
+      kw.empty? ? open_uri_original_open(name, *rest, &block) : open_uri_original_open(name, *rest, **kw, &block) # XXX
     end
   end
   module_function :open
@@ -127,19 +127,20 @@ module OpenURI
     }
   end
 
-  def OpenURI.scan_open_optional_arguments(*rest) # :nodoc:
+  def OpenURI.scan_open_optional_arguments(*rest, **kw) # :nodoc:
     if !rest.empty? && (String === rest.first || Integer === rest.first)
       mode = rest.shift
       if !rest.empty? && Integer === rest.first
         perm = rest.shift
       end
     end
+    rest += [kw] if !kw.empty?
     return mode, perm, rest
   end
 
-  def OpenURI.open_uri(name, *rest) # :nodoc:
+  def OpenURI.open_uri(name, *rest, **kw) # :nodoc:
     uri = URI::Generic === name ? name : URI.parse(name)
-    mode, _, rest = OpenURI.scan_open_optional_arguments(*rest)
+    mode, _, rest = OpenURI.scan_open_optional_arguments(*rest, **kw)
     options = rest.shift if !rest.empty? && Hash === rest.first
     raise ArgumentError.new("extra arguments") if !rest.empty?
     options ||= {}
@@ -732,16 +733,16 @@ module OpenURI
     #  Using +true+ also means that redirections between http and ftp are
     #  permitted.
     #
-    def open(*rest, &block)
-      OpenURI.open_uri(self, *rest, &block)
+    def open(*rest, **kw, &block)
+      OpenURI.open_uri(self, *rest, **kw, &block)
     end
 
     # OpenURI::OpenRead#read([options]) reads a content referenced by self and
     # returns the content as string.
     # The string is extended with OpenURI::Meta.
     # The argument +options+ is same as OpenURI::OpenRead#open.
-    def read(options={})
-      self.open(options) {|f|
+    def read(**options)
+      self.open(**options) {|f|
         str = f.read
         Meta.init str, f
         str

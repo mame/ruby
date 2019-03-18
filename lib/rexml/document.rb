@@ -202,10 +202,8 @@ module REXML
     #   Encoding name as String. Change output encoding to specified encoding
     #   instead of encoding in XML declaration.
     #   Defaults to nil. It means encoding in XML declaration is used.
-    def write(*arguments)
-      if arguments.size == 1 and arguments[0].class == Hash
-        options = arguments[0]
-
+    def write(*arguments, **options)
+      if arguments.empty?
         output     = options[:output]
         indent     = options[:indent]
         transitive = options[:transitive]

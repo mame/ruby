@@ -13,7 +13,7 @@ have_func("getlogin")
 have_func("getpwent")
 have_func("getgrent")
 if (sysconfdir = RbConfig::CONFIG["sysconfdir"] and
-    !RbConfig.expand(sysconfdir.dup, "prefix"=>"", "DESTDIR"=>"").empty?)
+    !RbConfig.expand(sysconfdir.dup, { "prefix"=>"", "DESTDIR"=>"" }).empty?)
   $defs.push("-DSYSCONFDIR=#{Shellwords.escape(sysconfdir.dump)}")
 end
 

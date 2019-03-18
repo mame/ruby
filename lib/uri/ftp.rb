@@ -116,7 +116,7 @@ module URI
         tmp[:path] << tmp[:typecode]
       end
 
-      return super(tmp)
+      return super(**tmp)
     end
 
     #

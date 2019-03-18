@@ -61,7 +61,7 @@ class YAML::Store < PStore
   # :stopdoc:
 
   def dump(table)
-    table.to_yaml(@opt)
+    table.to_yaml(**@opt)
   end
 
   def load(content)
@@ -78,7 +78,7 @@ class YAML::Store < PStore
   end
 
   def empty_marshal_data
-    {}.to_yaml(@opt)
+    {}.to_yaml(**@opt)
   end
   def empty_marshal_checksum
     CHECKSUM_ALGO.digest(empty_marshal_data)

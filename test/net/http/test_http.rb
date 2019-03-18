@@ -479,7 +479,7 @@ module TestNetHTTP_version_1_1_methods
     res = Net::HTTP.post(
               URI.parse(url),
               "hello world",
-              "Content-Type" => "text/plain; charset=US-ASCII")
+              { "Content-Type" => "text/plain; charset=US-ASCII" })
     assert_equal "text/plain; charset=US-ASCII", res["Content-Type"]
     assert_equal "hello world", res.body
   end
@@ -762,7 +762,7 @@ module TestNetHTTP_version_1_2_methods
 
   def _test_send_request__POST(http)
     data = 'aaabbb cc ddddddddddd lkjoiu4j3qlkuoa'
-    res = http.send_request('POST', '/', data, 'content-type' => 'application/x-www-form-urlencoded')
+    res = http.send_request('POST', '/', data, { 'content-type' => 'application/x-www-form-urlencoded' })
     assert_kind_of Net::HTTPResponse, res
     assert_kind_of String, res.body
     assert_equal data.size, res.body.size
@@ -1084,7 +1084,7 @@ class TestNetHTTPKeepAlive < Test::Unit::TestCase
       assert_nothing_raised {
         # Net::HTTP should detect the closed connection before attempting the
         # request, since post requests cannot be retried.
-        res = http.post('/', 'query=foo', 'content-type' => 'application/x-www-form-urlencoded')
+        res = http.post('/', 'query=foo', { 'content-type' => 'application/x-www-form-urlencoded' })
       }
       assert_kind_of Net::HTTPResponse, res
       assert_kind_of String, res.body

@@ -476,7 +476,7 @@ ERROR:  Certificate  is an invalid CA certificate
     @orig_RUBY_REVISION   = RUBY_REVISION if defined? RUBY_REVISION
   end
 
-  def util_stub_net_http(hash)
+  def util_stub_net_http(**hash)
     old_client = Gem::Request::ConnectionPools.client
     conn = Conn.new OpenStruct.new(hash)
     Gem::Request::ConnectionPools.client = conn

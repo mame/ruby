@@ -400,7 +400,8 @@ class CGI
     #
     #   html(if $VERBOSE then "PRETTY" end) { "HTML string" }
     #
-    def html(attributes = {}) # :yield:
+    def html(attributes = {}, **kw) # :yield:
+      attributes = attributes.merge(kw)
       if nil == attributes
         attributes = {}
       elsif "PRETTY" == attributes
@@ -779,13 +780,13 @@ class CGI
     #
     #   text_field("NAME" => "name", "VALUE" => "value")
     #     # <INPUT TYPE="text" NAME="name" VALUE="value">
-    def text_field(name = "", value = nil, size = 40, maxlength = nil)
-      attributes = if name.kind_of?(String)
+    def text_field(name = "", value = nil, size = 40, maxlength = nil, **kw)
+      attributes = if kw.empty?
                      { "TYPE" => "text", "NAME" => name, "VALUE" => value,
                        "SIZE" => size.to_s }
                    else
-                     name["TYPE"] = "text"
-                     name
+                     kw["TYPE"] = "text"
+                     kw
                    end
       attributes["MAXLENGTH"] = maxlength.to_s if maxlength
       input(attributes)

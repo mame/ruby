@@ -66,7 +66,7 @@ class Gem::DependencyInstaller
   # :wrappers:: See Gem::Installer::new
   # :build_args:: See Gem::Installer::new
 
-  def initialize(options = {})
+  def initialize(**options)
     @only_install_dir = !!options[:install_dir]
     @install_dir = options[:install_dir] || Gem.dir
     @build_root = options[:build_root]
@@ -406,7 +406,7 @@ class Gem::DependencyInstaller
     }
     options[:install_dir] = @install_dir if @only_install_dir
 
-    request_set.install options do |_, installer|
+    request_set.install **options do |_, installer|
       @installed_gems << installer.spec if installer
     end
 

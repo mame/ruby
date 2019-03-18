@@ -57,9 +57,9 @@ module URI
     # Currently, if passed userinfo components this method generates
     # invalid HTTP URIs as per RFC 1738.
     #
-    def self.build(args)
-      tmp = Util.make_components_hash(self, args)
-      super(tmp)
+    def self.build(arg = nil, **kw)
+      tmp = Util.make_components_hash(self, arg || kw)
+      super(**tmp)
     end
 
     #

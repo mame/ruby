@@ -192,7 +192,7 @@ lib/foo.rb
 
   def test_execute_default_gem
     default_gem_spec = new_default_spec("default", "2.0.0.0",
-                                        nil, "default/gem.rb")
+                                        "default/gem.rb")
     default_gem_spec.executables = ["default_command"]
     default_gem_spec.files += ["default_gem.so"]
     install_default_specs(default_gem_spec)

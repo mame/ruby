@@ -150,7 +150,7 @@ class CGIMultipartTest < Test::Unit::TestCase
     $stdin = tmpfile
   end
 
-  def _test_multipart(cgi_options={})
+  def _test_multipart(**cgi_options)
     caller(0).find {|s| s =~ /in `test_(.*?)'/ }
     #testname = $1
     #$stderr.puts "*** debug: testname=#{testname.inspect}"

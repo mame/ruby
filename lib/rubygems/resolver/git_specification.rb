@@ -21,10 +21,10 @@ class Gem::Resolver::GitSpecification < Gem::Resolver::SpecSpecification
   # Installing a git gem only involves building the extensions and generating
   # the executables.
 
-  def install(options = {})
+  def install(**options)
     require 'rubygems/installer'
 
-    installer = Gem::Installer.for_spec spec, options
+    installer = Gem::Installer.for_spec spec, **options
 
     yield installer if block_given?
 

@@ -101,10 +101,10 @@ class Gem::Installer
   ##
   # Construct an installer object for the gem file located at +path+
 
-  def self.at(path, options = {})
+  def self.at(path, **options)
     security_policy = options[:security_policy]
     package = Gem::Package.new path, security_policy
-    new package, options
+    new package, **options
   end
 
   class FakePackage
@@ -141,7 +141,7 @@ class Gem::Installer
   # Construct an installer object for an ephemeral gem (one where we don't
   # actually have a .gem file, just a spec)
 
-  def self.for_spec(spec, options = {})
+  def self.for_spec(spec, **options)
     # FIXME: we should have a real Package class for this
     new FakePackage.new(spec), options
   end
@@ -171,7 +171,7 @@ class Gem::Installer
   #               process. If not set, then Gem::Command.build_args is used
   # :post_install_message:: Print gem post install message if true
 
-  def initialize(package, options={})
+  def initialize(package, **options)
     require 'fileutils'
 
     @options = options

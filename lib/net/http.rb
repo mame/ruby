@@ -584,8 +584,7 @@ module Net   #:nodoc:
     # return value of this method is the newly created Net::HTTP object
     # itself, and the caller is responsible for closing it upon completion
     # using the finish() method.
-    def HTTP.start(address, *arg, &block) # :yield: +http+
-      arg.pop if opt = Hash.try_convert(arg[-1])
+    def HTTP.start(address, *arg, **opt, &block) # :yield: +http+
       port, p_addr, p_port, p_user, p_pass = *arg
       p_addr = :ENV if arg.size < 2
       port = https_default_port if !port && opt && opt[:use_ssl]
@@ -979,7 +978,7 @@ module Net   #:nodoc:
           end
         end
         @ssl_context = OpenSSL::SSL::SSLContext.new
-        @ssl_context.set_params(ssl_parameters)
+        @ssl_context.set_params(**ssl_parameters)
         @ssl_context.session_cache_mode =
           OpenSSL::SSL::SSLContext::SESSION_CACHE_CLIENT |
           OpenSSL::SSL::SSLContext::SESSION_CACHE_NO_INTERNAL_STORE

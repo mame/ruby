@@ -125,7 +125,7 @@ YoaOffgTf5qxiwkjnlVZQc3whgnEt9FpVMvQ9eknyeGB5KHfayAc3+hUAvI3/Cr3
 
       ##
       # call-seq:
-      #   ctx.set_params(params = {}) -> params
+      #   ctx.set_params(**params) -> params
       #
       # Sets saner defaults optimized for the use with HTTP-like protocols.
       #
@@ -135,7 +135,7 @@ YoaOffgTf5qxiwkjnlVZQc3whgnEt9FpVMvQ9eknyeGB5KHfayAc3+hUAvI3/Cr3
       # If the verify_mode is not VERIFY_NONE and ca_file, ca_path and
       # cert_store are not set then the system default certificate store is
       # used.
-      def set_params(params={})
+      def set_params(**params)
         params = DEFAULT_PARAMS.merge(params)
         self.options = params.delete(:options) # set before min_version/max_version
         params.each{|name, value| self.__send__("#{name}=", value) }

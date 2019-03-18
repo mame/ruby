@@ -27,7 +27,7 @@ class TestWEBrickSSLServer < Test::Unit::TestCase
     )
   end
 
-  def assert_self_signed_cert(config)
+  def assert_self_signed_cert(**config)
     TestWEBrick.start_server(Echo, config){|server, addr, port, log|
       io = TCPSocket.new(addr, port)
       sock = OpenSSL::SSL::SSLSocket.new(io)

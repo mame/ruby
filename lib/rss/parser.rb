@@ -72,12 +72,7 @@ module RSS
         end
       end
 
-      def parse(rss, *args)
-        if args.last.is_a?(Hash)
-          options = args.pop
-        else
-          options = {}
-        end
+      def parse(rss, *args, **options)
         do_validate = boolean_argument(args[0], options[:validate], true)
         ignore_unknown_element =
           boolean_argument(args[1], options[:ignore_unknown_element], true)

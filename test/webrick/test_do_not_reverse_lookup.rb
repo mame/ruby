@@ -16,7 +16,7 @@ class TestDoNotReverseLookup < Test::Unit::TestCase
     Socket.do_not_reverse_lookup = @@original_do_not_reverse_lookup_value
   end
 
-  def do_not_reverse_lookup?(config)
+  def do_not_reverse_lookup?(**config)
     result = nil
     TestWEBrick.start_server(DNRL, config) do |server, addr, port, log|
       TCPSocket.open(addr, port) do |sock|

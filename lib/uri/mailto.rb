@@ -118,7 +118,7 @@ module URI
         end
       end
 
-      super(tmp)
+      super(**tmp)
     end
 
     #

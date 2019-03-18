@@ -175,10 +175,10 @@ extensions will be restored.
       }
 
       if options[:only_executables]
-        installer = Gem::Installer.for_spec(spec, installer_options)
+        installer = Gem::Installer.for_spec(spec, **installer_options)
         installer.generate_bin
       else
-        installer = Gem::Installer.at(gem, installer_options)
+        installer = Gem::Installer.at(gem, **installer_options)
         installer.install
       end
 

@@ -752,7 +752,7 @@ class TestRDocStore < XrefTestCase
     assert_directory File.join(@tmpdir, 'Object')
     assert_file File.join(@tmpdir, 'Object', 'cdesc-Object.ri')
 
-    assert_cache nil, nil, nil, %w[Object], 'Object' => OBJECT_ANCESTORS
+    assert_cache(nil, nil, nil, %w[Object], { 'Object' => OBJECT_ANCESTORS })
 
     assert_equal @klass, @s.load_class('Object')
   end
@@ -798,7 +798,7 @@ class TestRDocStore < XrefTestCase
 
     assert_cache({ 'Object' => %w[replace] }, {},
                  { 'Object' => %w[attr_accessor\ attr] }, %w[Object],
-                   'Object' => OBJECT_ANCESTORS)
+                 { 'Object' => OBJECT_ANCESTORS })
 
     # assert these files were deleted
     refute_file @s.method_file(@klass.full_name, @meth.full_name)
@@ -907,7 +907,7 @@ class TestRDocStore < XrefTestCase
     assert_directory File.join(@tmpdir, 'Object')
     assert_file File.join(@tmpdir, 'Object', 'cdesc-Object.ri')
 
-    assert_cache nil, nil, nil, %w[Object], 'Object' => OBJECT_ANCESTORS
+    assert_cache(nil, nil, nil, %w[Object], { 'Object' => OBJECT_ANCESTORS })
 
     assert_equal @klass, @s.load_class('Object')
   end
@@ -919,7 +919,7 @@ class TestRDocStore < XrefTestCase
     assert_file File.join(@tmpdir, 'Object', 'SubClass', 'cdesc-SubClass.ri')
 
     assert_cache({ 'Object::SubClass' => %w[method] }, {}, {},
-                 %w[Object::SubClass], 'Object::SubClass' => %w[Incl Object])
+                 %w[Object::SubClass], { 'Object::SubClass' => %w[Incl Object] })
   end
 
   def test_save_method

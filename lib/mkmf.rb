@@ -408,7 +408,7 @@ MESSAGE
     end
   end
 
-  def xpopen command, *mode, &block
+  def xpopen command, *mode, **kw, &block
     Logging::open do
       case mode[0]
       when nil, /^r/
@@ -416,7 +416,7 @@ MESSAGE
       else
         puts "| #{command}"
       end
-      IO.popen(libpath_env, command, *mode, &block)
+      IO.popen(libpath_env, command, *mode, **kw, &block)
     end
   end
 

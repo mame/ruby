@@ -32,7 +32,7 @@ class HTTPHeaderTest < Test::Unit::TestCase
   end
 
   def test_initialize_with_symbol
-    @c.initialize_http_header(foo: "abc")
+    @c.initialize_http_header({ foo: "abc" })
     assert_equal "abc", @c["foo"]
   end
 

@@ -129,7 +129,7 @@ By default, this RubyGems will install gem as:
   end
 
   module MakeDirs
-    def mkdir_p(path, *opts)
+    def mkdir_p(path, *opts, **kw)
       super
       (@mkdirs ||= []) << path
     end

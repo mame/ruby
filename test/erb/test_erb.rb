@@ -628,7 +628,7 @@ EOS
   def test_result_with_hash_does_not_use_caller_local_variables
     erb = @erb.new("<%= foo %>")
     foo = 1
-    assert_raise(NameError) { erb.result_with_hash({}) }
+    assert_raise(NameError) { erb.result_with_hash(**{}) } # XXX
     assert_equal("1", erb.result_with_hash(foo: foo))
   end
 

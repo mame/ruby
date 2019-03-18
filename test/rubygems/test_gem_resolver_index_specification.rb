@@ -43,7 +43,7 @@ class TestGemResolverIndexSpecification < Gem::TestCase
 
     called = false
 
-    spec.install({}) do |installer|
+    spec.install do |installer|
       called = installer
     end
 

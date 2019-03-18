@@ -43,7 +43,7 @@ class TestGemResolverLockSpecification < Gem::TestCase
 
     called = false
 
-    spec.install({}) do |installer|
+    spec.install do |installer|
       called = installer
     end
 
@@ -57,7 +57,7 @@ class TestGemResolverLockSpecification < Gem::TestCase
 
     called = false
 
-    spec.install({}) do |installer|
+    spec.install do |installer|
       called = installer
     end
 

@@ -69,7 +69,7 @@ module REXML
     end
 
     # Returns an array of nodes matching a given XPath.
-    def XPath::match(element, path=nil, namespaces=nil, variables={}, options={})
+    def XPath::match(element, path=nil, namespaces=nil, variables={}, **options)
       parser = XPathParser.new(**options)
       parser.namespaces = namespaces
       parser.variables = variables

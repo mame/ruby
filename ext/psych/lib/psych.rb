@@ -503,7 +503,7 @@ module Psych
   #
   #   # Dump an array to an IO with indentation set
   #   Psych.dump(['a', ['b']], StringIO.new, indentation: 3)
-  def self.dump o, io = nil, options = {}
+  def self.dump o, io = nil, **options
     if Hash === io
       options = io
       io      = nil

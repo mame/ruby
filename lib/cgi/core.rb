@@ -157,11 +157,12 @@ class CGI
   #               "my_header2" => "my_value")
   #
   # This method does not perform charset conversion.
-  def http_header(options='text/html')
-    if options.is_a?(String)
+  def http_header(options='text/html', **kw)
+    if options.is_a?(String) && kw.empty?
       content_type = options
       buf = _header_for_string(content_type)
-    elsif options.is_a?(Hash)
+    elsif options.is_a?(Hash) || !kw.empty?
+      options = options.is_a?(Hash) ? options.merge(kw) : kw
       if options.size == 1 && options.has_key?('type')
         content_type = options['type']
         buf = _header_for_string(content_type)

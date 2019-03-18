@@ -240,22 +240,22 @@ class Gem::TestCase::SpecFetcherSetup
   end
 
   def execute_operations # :nodoc:
-    @operations.each do |operation, *arguments|
+    @operations.each do |operation, *arguments, deps, block|
       case operation
       when :gem then
-        spec, gem = @test.util_gem(*arguments, &arguments.pop)
+        spec, gem = @test.util_gem(*arguments, **deps, &block)
 
         write_spec spec
 
         @gems[spec] = gem
         @installed << spec
       when :download then
-        spec, gem = @test.util_gem(*arguments, &arguments.pop)
+        spec, gem = @test.util_gem(*arguments, **deps, &block)
 
         @gems[spec] = gem
         @downloaded << spec
       when :spec then
-        spec = @test.util_spec(*arguments, &arguments.pop)
+        spec = @test.util_spec(*arguments, **deps, &block)
 
         write_spec spec
 
@@ -272,7 +272,7 @@ class Gem::TestCase::SpecFetcherSetup
   # The specification will be yielded before gem creation for customization,
   # but only the block or the dependencies may be set, not both.
 
-  def gem(name, version, dependencies = nil, &block)
+  def gem(name, version, **dependencies, &block)
     @operations << [:gem, name, version, dependencies, block]
   end
 
@@ -283,7 +283,7 @@ class Gem::TestCase::SpecFetcherSetup
   # The specification will be yielded before gem creation for customization,
   # but only the block or the dependencies may be set, not both.
 
-  def download(name, version, dependencies = nil, &block)
+  def download(name, version, **dependencies, &block)
     @operations << [:download, name, version, dependencies, block]
   end
 
@@ -336,7 +336,7 @@ class Gem::TestCase::SpecFetcherSetup
   # The specification will be yielded before creation for customization,
   # but only the block or the dependencies may be set, not both.
 
-  def spec(name, version, dependencies = nil, &block)
+  def spec(name, version, **dependencies, &block)
     @operations << [:spec, name, version, dependencies, block]
   end
 

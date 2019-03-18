@@ -43,10 +43,10 @@ class TestGemRequire < Gem::TestCase
 
   # Providing -I on the commandline should always beat gems
   def test_dash_i_beats_gems
-    a1 = util_spec "a", "1", {"b" => "= 1"}, "lib/test_gem_require_a.rb"
-    b1 = util_spec "b", "1", {"c" => "> 0"}, "lib/b/c.rb"
-    c1 = util_spec "c", "1", nil, "lib/c/c.rb"
-    c2 = util_spec "c", "2", nil, "lib/c/c.rb"
+    a1 = util_spec "a", "1", "lib/test_gem_require_a.rb", "b" => "= 1"
+    b1 = util_spec "b", "1", "lib/b/c.rb", "c" => "> 0"
+    c1 = util_spec "c", "1", "lib/c/c.rb"
+    c2 = util_spec "c", "2", "lib/c/c.rb"
 
     install_specs c1, c2, b1, a1
 
@@ -86,8 +86,8 @@ class TestGemRequire < Gem::TestCase
     Object.const_set :FILE_ENTERED_LATCH, Latch.new(2)
     Object.const_set :FILE_EXIT_LATCH, Latch.new(1)
 
-    a1 = util_spec "a", "1", nil, "lib/a.rb"
-    b1 = util_spec "b", "1", nil, "lib/b.rb"
+    a1 = util_spec "a", "1", "lib/a.rb"
+    b1 = util_spec "b", "1", "lib/b.rb"
 
     install_specs a1, b1
 
@@ -108,9 +108,9 @@ class TestGemRequire < Gem::TestCase
   end
 
   def test_require_is_not_lazy_with_exact_req
-    a1 = util_spec "a", "1", {"b" => "= 1"}, "lib/test_gem_require_a.rb"
-    b1 = util_spec "b", "1", nil, "lib/b/c.rb"
-    b2 = util_spec "b", "2", nil, "lib/b/c.rb"
+    a1 = util_spec "a", "1", "lib/test_gem_require_a.rb", "b" => "= 1"
+    b1 = util_spec "b", "1", "lib/b/c.rb"
+    b2 = util_spec "b", "2", "lib/b/c.rb"
 
     install_specs b1, b2, a1
 
@@ -123,9 +123,9 @@ class TestGemRequire < Gem::TestCase
   end
 
   def test_require_is_lazy_with_inexact_req
-    a1 = util_spec "a", "1", {"b" => ">= 1"}, "lib/test_gem_require_a.rb"
-    b1 = util_spec "b", "1", nil, "lib/b/c.rb"
-    b2 = util_spec "b", "2", nil, "lib/b/c.rb"
+    a1 = util_spec "a", "1", "lib/test_gem_require_a.rb", "b" => ">= 1"
+    b1 = util_spec "b", "1", "lib/b/c.rb"
+    b2 = util_spec "b", "2", "lib/b/c.rb"
 
     install_specs b1, b2, a1
 
@@ -138,8 +138,8 @@ class TestGemRequire < Gem::TestCase
   end
 
   def test_require_is_not_lazy_with_one_possible
-    a1 = util_spec "a", "1", {"b" => ">= 1"}, "lib/test_gem_require_a.rb"
-    b1 = util_spec "b", "1", nil, "lib/b/c.rb"
+    a1 = util_spec "a", "1", "lib/test_gem_require_a.rb", "b" => ">= 1"
+    b1 = util_spec "b", "1", "lib/b/c.rb"
 
     install_specs b1, a1
 
@@ -152,7 +152,7 @@ class TestGemRequire < Gem::TestCase
   end
 
   def test_require_can_use_a_pathname_object
-    a1 = util_spec "a", "1", nil, "lib/test_gem_require_a.rb"
+    a1 = util_spec "a", "1", "lib/test_gem_require_a.rb"
 
     install_specs a1
 
@@ -162,9 +162,9 @@ class TestGemRequire < Gem::TestCase
   end
 
   def test_activate_via_require_respects_loaded_files
-    a1 = util_spec "a", "1", {"b" => ">= 1"}, "lib/test_gem_require_a.rb"
-    b1 = util_spec "b", "1", nil, "lib/benchmark.rb"
-    b2 = util_spec "b", "2", nil, "lib/benchmark.rb"
+    a1 = util_spec "a", "1", "lib/test_gem_require_a.rb", "b" => ">= 1"
+    b1 = util_spec "b", "1", "lib/benchmark.rb"
+    b2 = util_spec "b", "2", "lib/benchmark.rb"
 
     install_specs b1, b2, a1
 
@@ -182,11 +182,11 @@ class TestGemRequire < Gem::TestCase
   end
 
   def test_already_activated_direct_conflict
-    a1 = util_spec "a", "1", { "b" => "> 0" }
-    b1 = util_spec "b", "1", { "c" => ">= 1" }, "lib/ib.rb"
-    b2 = util_spec "b", "2", { "c" => ">= 2" }, "lib/ib.rb"
-    c1 = util_spec "c", "1", nil, "lib/d.rb"
-    c2 = util_spec("c", "2", nil, "lib/d.rb")
+    a1 = util_spec "a", "1", "b" => "> 0"
+    b1 = util_spec "b", "1", "lib/ib.rb", "c" => ">= 1"
+    b2 = util_spec "b", "2", "lib/ib.rb", "c" => ">= 2"
+    c1 = util_spec "c", "1", "lib/d.rb"
+    c2 = util_spec("c", "2", "lib/d.rb")
 
     install_specs c1, c2, b1, b2, a1
 
@@ -202,13 +202,13 @@ class TestGemRequire < Gem::TestCase
   end
 
   def test_multiple_gems_with_the_same_path
-    a1 = util_spec "a", "1", { "b" => "> 0", "x" => "> 0" }
-    b1 = util_spec "b", "1", { "c" => ">= 1" }, "lib/ib.rb"
-    b2 = util_spec "b", "2", { "c" => ">= 2" }, "lib/ib.rb"
-    x1 = util_spec "x", "1", nil, "lib/ib.rb"
-    x2 = util_spec "x", "2", nil, "lib/ib.rb"
-    c1 = util_spec "c", "1", nil, "lib/d.rb"
-    c2 = util_spec("c", "2", nil, "lib/d.rb")
+    a1 = util_spec "a", "1", "b" => "> 0", "x" => "> 0"
+    b1 = util_spec "b", "1", "lib/ib.rb", "c" => ">= 1"
+    b2 = util_spec "b", "2", "lib/ib.rb", "c" => ">= 2"
+    x1 = util_spec "x", "1", "lib/ib.rb"
+    x2 = util_spec "x", "2", "lib/ib.rb"
+    c1 = util_spec "c", "1", "lib/d.rb"
+    c2 = util_spec("c", "2", "lib/d.rb")
 
     install_specs c1, c2, x1, x2, b1, b2, a1
 
@@ -225,13 +225,13 @@ class TestGemRequire < Gem::TestCase
   end
 
   def test_unable_to_find_good_unresolved_version
-    a1 = util_spec "a", "1", { "b" => "> 0" }
-    b1 = util_spec "b", "1", { "c" => ">= 2" }, "lib/ib.rb"
-    b2 = util_spec "b", "2", { "c" => ">= 3" }, "lib/ib.rb"
+    a1 = util_spec "a", "1", "b" => "> 0"
+    b1 = util_spec "b", "1", "lib/ib.rb", "c" => ">= 2"
+    b2 = util_spec "b", "2", "lib/ib.rb", "c" => ">= 3"
 
-    c1 = util_spec "c", "1", nil, "lib/d.rb"
-    c2 = util_spec "c", "2", nil, "lib/d.rb"
-    c3 = util_spec "c", "3", nil, "lib/d.rb"
+    c1 = util_spec "c", "1", "lib/d.rb"
+    c2 = util_spec "c", "2", "lib/d.rb"
+    c3 = util_spec "c", "3", "lib/d.rb"
 
     install_specs c1, c2, c3, b1, b2, a1
 
@@ -248,9 +248,9 @@ class TestGemRequire < Gem::TestCase
   end
 
   def test_require_works_after_cleanup
-    a1 = new_default_spec "a", "1.0", nil, "a/b.rb"
-    b1 = new_default_spec "b", "1.0", nil, "b/c.rb"
-    b2 = new_default_spec "b", "2.0", nil, "b/d.rb"
+    a1 = new_default_spec "a", "1.0", "a/b.rb"
+    b1 = new_default_spec "b", "1.0", "b/c.rb"
+    b2 = new_default_spec "b", "2.0", "b/d.rb"
 
     install_default_gems a1
     install_default_gems b1
@@ -274,7 +274,7 @@ class TestGemRequire < Gem::TestCase
   end
 
   def test_require_doesnt_traverse_development_dependencies
-    a = util_spec("a", "1", nil, "lib/a.rb")
+    a = util_spec("a", "1", "lib/a.rb")
     z = util_spec("z", "1", "w" => "> 0")
     w1 = util_spec("w", "1") { |s| s.add_development_dependency "non-existent" }
     w2 = util_spec("w", "2") { |s| s.add_development_dependency "non-existent" }
@@ -290,7 +290,7 @@ class TestGemRequire < Gem::TestCase
 
   def test_default_gem_only
     default_gem_spec = new_default_spec("default", "2.0.0.0",
-                                        nil, "default/gem.rb")
+                                        "default/gem.rb")
     install_default_specs(default_gem_spec)
     assert_require "default/gem"
     assert_equal %w(default-2.0.0.0), loaded_spec_names
@@ -314,9 +314,9 @@ class TestGemRequire < Gem::TestCase
 
   def test_default_gem_and_normal_gem
     default_gem_spec = new_default_spec("default", "2.0.0.0",
-                                        nil, "default/gem.rb")
+                                        "default/gem.rb")
     install_default_specs(default_gem_spec)
-    normal_gem_spec = util_spec("default", "3.0", nil,
+    normal_gem_spec = util_spec("default", "3.0",
                                "lib/default/gem.rb")
     install_specs(normal_gem_spec)
     assert_require "default/gem"
@@ -358,7 +358,7 @@ class TestGemRequire < Gem::TestCase
 
   def test_require_when_gem_defined
     default_gem_spec = new_default_spec("default", "2.0.0.0",
-                                        nil, "default/gem.rb")
+                                        "default/gem.rb")
     install_default_specs(default_gem_spec)
     c = Class.new do
       def self.gem(*args)
@@ -370,7 +370,7 @@ class TestGemRequire < Gem::TestCase
   end
 
   def test_require_default_when_gem_defined
-    a = util_spec("a", "1", nil, "lib/a.rb")
+    a = util_spec("a", "1", "lib/a.rb")
     install_specs a
     c = Class.new do
       def self.gem(*args)
@@ -383,8 +383,8 @@ class TestGemRequire < Gem::TestCase
 
 
   def test_require_bundler
-    b1 = util_spec('bundler', '1', nil, "lib/bundler/setup.rb")
-    b2a = util_spec('bundler', '2.a', nil, "lib/bundler/setup.rb")
+    b1 = util_spec('bundler', '1', "lib/bundler/setup.rb")
+    b2a = util_spec('bundler', '2.a', "lib/bundler/setup.rb")
     install_specs b1, b2a
 
     require "rubygems/bundler_version_finder"
@@ -396,8 +396,8 @@ class TestGemRequire < Gem::TestCase
 
   def test_require_bundler_missing_bundler_version
     Gem::BundlerVersionFinder.stub(:bundler_version_with_reason, ["55", "reason"]) do
-      b1 = util_spec('bundler', '1.999999999', nil, "lib/bundler/setup.rb")
-      b2a = util_spec('bundler', '2.a', nil, "lib/bundler/setup.rb")
+      b1 = util_spec('bundler', '1.999999999', "lib/bundler/setup.rb")
+      b2a = util_spec('bundler', '2.a', "lib/bundler/setup.rb")
       install_specs b1, b2a
 
       e = assert_raises Gem::MissingSpecVersionError do
@@ -409,8 +409,8 @@ class TestGemRequire < Gem::TestCase
 
   def test_require_bundler_with_bundler_version
     Gem::BundlerVersionFinder.stub(:bundler_version_with_reason, ["1", "reason"]) do
-      b1 = util_spec('bundler', '1.999999999', nil, "lib/bundler/setup.rb")
-      b2 = util_spec('bundler', '2', nil, "lib/bundler/setup.rb")
+      b1 = util_spec('bundler', '1.999999999', "lib/bundler/setup.rb")
+      b2 = util_spec('bundler', '2', "lib/bundler/setup.rb")
       install_specs b1, b2
 
       $:.clear

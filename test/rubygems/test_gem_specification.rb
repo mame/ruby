@@ -120,8 +120,8 @@ end
   def test_self_activate_ambiguous_direct
     save_loaded_features do
       a1 = util_spec "a", "1", "b" => "> 0"
-      b1 = util_spec("b", "1", { "c" => ">= 1" }, "lib/d.rb")
-      b2 = util_spec("b", "2", { "c" => ">= 2" }, "lib/d.rb")
+      b1 = util_spec("b", "1", "lib/d.rb", "c" => ">= 1")
+      b2 = util_spec("b", "2", "lib/d.rb", "c" => ">= 2")
       c1 = util_spec "c", "1"
       c2 = util_spec "c", "2"
 
@@ -148,10 +148,10 @@ end
           deps = Hash[((pkgi + 1)..num_of_pkg).map do |deppkgi|
             ["pkg#{deppkgi}", ">= 0"]
           end]
-          util_spec "pkg#{pkgi}", pkg_version.to_s, deps
+          util_spec "pkg#{pkgi}", pkg_version.to_s, **deps
         end
       end
-      base = util_spec "pkg_base", "1", {"pkg0" => ">= 0"}
+      base = util_spec "pkg_base", "1", "pkg0" => ">= 0"
 
       Gem::Specification.reset
       install_specs(*packages.flatten.reverse)
@@ -170,8 +170,8 @@ end
       a1 = util_spec "a", "1", "b" => "> 0"
       b1 = util_spec "b", "1", "c" => ">= 1"
       b2 = util_spec "b", "2", "c" => ">= 2"
-      c1 = util_spec "c", "1", nil, "lib/d.rb"
-      c2 = util_spec "c", "2", nil, "lib/d.rb"
+      c1 = util_spec "c", "1", "lib/d.rb"
+      c2 = util_spec "c", "2", "lib/d.rb"
 
       install_specs c1, c2, b1, b2, a1
 
@@ -192,8 +192,8 @@ end
       a2 = util_spec "a", "2", "b" => "> 0"
       b1 = util_spec "b", "1", "c" => ">= 1"
       b2 = util_spec "b", "2", "c" => ">= 2"
-      c1 = util_spec "c", "1", nil, "lib/d.rb"
-      c2 = util_spec("c", "2", { "a" => "1" }, "lib/d.rb") # conflicts with a-2
+      c1 = util_spec "c", "1", "lib/d.rb"
+      c2 = util_spec("c", "2", "lib/d.rb", "a" => "1") # conflicts with a-2
 
       install_specs c1, b1, a1, a2, c2, b2
 
@@ -215,7 +215,7 @@ end
       b2 = util_spec "b", "2", "c" => ">= 2"
       c1 = util_spec "c", "1"
       c2 = util_spec "c", "2"
-      d1 = util_spec "d", "1", nil, "lib/d.rb"
+      d1 = util_spec "d", "1", "lib/d.rb"
 
       install_specs d1, c1, c2, b1, b2, a1
 
@@ -235,8 +235,8 @@ end
       a1 = util_spec "a", "1", "b" => "> 0"
       b1 = util_spec "b", "1", "c" => ">= 0" # unresolved
       b2 = util_spec "b", "2", "c" => ">= 0"
-      c1 = util_spec "c", "1", nil, "lib/c.rb"  # 1st level
-      c2 = util_spec "c", "2", nil, "lib/c.rb"
+      c1 = util_spec "c", "1", "lib/c.rb"  # 1st level
+      c2 = util_spec "c", "2", "lib/c.rb"
 
       install_specs c1, c2, b1, b2, a1
 
@@ -253,10 +253,10 @@ end
       a1 = util_spec "a", "1", "b" => "> 0"
       b1 = util_spec "b", "1", "c" => ">= 0" # unresolved
       b2 = util_spec "b", "2", "c" => ">= 0"
-      c1 = util_spec "c", "1", "d" => ">= 0"  # 1st level
+      c1 = util_spec "c", "1", "d" => ">= 0" # 1st level
       c2 = util_spec "c", "2", "d" => ">= 0"
-      d1 = util_spec "d", "1", nil, "lib/d.rb" # 2nd level
-      d2 = util_spec "d", "2", nil, "lib/d.rb"
+      d1 = util_spec "d", "1", "lib/d.rb" # 2nd level
+      d2 = util_spec "d", "2", "lib/d.rb"
 
       install_specs d1, d2, c1, c2, b1, b2, a1
 
@@ -275,9 +275,9 @@ end
       b2 = util_spec "b", "2", "c" => ">= 0"
       c1 = util_spec "c", "1", "d" => "<= 2" # 1st level
       c2 = util_spec "c", "2", "d" => "<= 2"
-      d1 = util_spec "d", "1", nil, "lib/d.rb" # 2nd level
-      d2 = util_spec "d", "2", nil, "lib/d.rb"
-      d3 = util_spec "d", "3", nil, "lib/d.rb"
+      d1 = util_spec "d", "1", "lib/d.rb" # 2nd level
+      d2 = util_spec "d", "2", "lib/d.rb"
+      d3 = util_spec "d", "3", "lib/d.rb"
 
       install_specs d1, d2, d3, c1, c2, b1, b2, a1
 
@@ -296,10 +296,10 @@ end
       b2 = util_spec "b", "2", "c" => ">= 0"
       c1 = util_spec "c", "1", "d" => "<= 2" # 1st level
       c2 = util_spec "c", "2", "d" => "<= 2"
-      d1 = util_spec "d", "1", nil, "lib/d.rb" # 2nd level
-      d2 = util_spec "d", "2", nil, "lib/d.rb"
-      d3 = util_spec "d", "3", nil, "lib/d.rb"
-      e  = util_spec "anti_d", "1", nil, "lib/d.rb"
+      d1 = util_spec "d", "1", "lib/d.rb" # 2nd level
+      d2 = util_spec "d", "2", "lib/d.rb"
+      d3 = util_spec "d", "3", "lib/d.rb"
+      e  = util_spec "anti_d", "1", "lib/d.rb"
 
       install_specs d1, d2, d3, e, c1, c2, b1, b2, a1
 
@@ -314,13 +314,13 @@ end
   def test_require_should_not_conflict
     save_loaded_features do
       base = util_spec "0", "1", "A" => ">= 1"
-      a1 = util_spec "A", "1", {"c" => ">= 2", "b" => "> 0"}, "lib/a.rb"
-      a2 = util_spec "A", "2", {"c" => ">= 2", "b" => "> 0"}, "lib/a.rb"
-      b1 = util_spec "b", "1", {"c" => "= 1"}, "lib/d.rb"
-      b2 = util_spec "b", "2", {"c" => "= 2"}, "lib/d.rb"
-      c1 = util_spec "c", "1", {}, "lib/c.rb"
-      c2 = util_spec "c", "2", {}, "lib/c.rb"
-      c3 = util_spec "c", "3", {}, "lib/c.rb"
+      a1 = util_spec "A", "1", "lib/a.rb", "c" => ">= 2", "b" => "> 0"
+      a2 = util_spec "A", "2", "lib/a.rb", "c" => ">= 2", "b" => "> 0"
+      b1 = util_spec "b", "1", "lib/d.rb", "c" => "= 1"
+      b2 = util_spec "b", "2", "lib/d.rb", "c" => "= 2"
+      c1 = util_spec "c", "1", "lib/c.rb"
+      c2 = util_spec "c", "2", "lib/c.rb"
+      c3 = util_spec "c", "3", "lib/c.rb"
 
       install_specs c1, c2, c3, b1, b2, a1, a2, base
 
@@ -343,9 +343,9 @@ end
       c1 = util_spec "c", "1", "d" => "<= 2" # 1st level
       c2 = util_spec "c", "2", "d" => "<= 2"
       c3 = util_spec "c", "3", "d" => "<= 3"
-      d1 = util_spec "d", "1", nil, "lib/d.rb" # 2nd level
-      d2 = util_spec "d", "2", nil, "lib/d.rb"
-      d3 = util_spec "d", "3", nil, "lib/d.rb"
+      d1 = util_spec "d", "1", "lib/d.rb" # 2nd level
+      d2 = util_spec "d", "2", "lib/d.rb"
+      d3 = util_spec "d", "3", "lib/d.rb"
 
       install_specs d1, d2, d3, c1, c2, c3, b1, b2, a1
 
@@ -365,9 +365,9 @@ end
       c1 = util_spec "xc", "1", "d" => "<= 3" # 1st level
       c2 = util_spec "xc", "2", "d" => "<= 2"
       c3 = util_spec "xc", "3", "d" => "<= 3"
-      d1 = util_spec "d", "1", nil, "lib/d.rb" # 2nd level
-      d2 = util_spec "d", "2", nil, "lib/d.rb"
-      d3 = util_spec "d", "3", nil, "lib/d.rb"
+      d1 = util_spec "d", "1", "lib/d.rb" # 2nd level
+      d2 = util_spec "d", "2", "lib/d.rb"
+      d3 = util_spec "d", "3", "lib/d.rb"
 
       install_specs d1, d2, d3, c1, c2, c3, b1, b2, a1
 
@@ -494,8 +494,8 @@ end
 
   def test_self_activate_via_require
     a1 = util_spec "a", "1", "b" => "= 1"
-    b1 = util_spec "b", "1", nil, "lib/b/c.rb"
-    b2 = util_spec "b", "2", nil, "lib/b/c.rb"
+    b1 = util_spec "b", "1", "lib/b/c.rb"
+    b2 = util_spec "b", "2", "lib/b/c.rb"
 
     install_specs b1, b2, a1
 
@@ -509,13 +509,13 @@ end
 
   def test_self_activate_via_require_wtf
     save_loaded_features do
-      a1 = util_spec "a", "1", "b" => "> 0", "d" => "> 0"    # this
-      b1 = util_spec "b", "1", { "c" => ">= 1" }, "lib/b.rb"
-      b2 = util_spec "b", "2", { "c" => ">= 2" }, "lib/b.rb" # this
+      a1 = util_spec "a", "1", "b" => "> 0", "d" => "> 0" # this
+      b1 = util_spec "b", "1", "lib/b.rb", "c" => ">= 1"
+      b2 = util_spec "b", "2", "lib/b.rb", "c" => ">= 2" # this
       c1 = util_spec "c", "1"
       c2 = util_spec "c", "2"                                # this
-      d1 = util_spec "d", "1", { "c" => "< 2" },  "lib/d.rb"
-      d2 = util_spec "d", "2", { "c" => "< 2" },  "lib/d.rb" # this
+      d1 = util_spec "d", "1", "lib/d.rb", "c" => "< 2"
+      d2 = util_spec "d", "2", "lib/d.rb", "c" => "< 2" # this
 
       install_specs c1, c2, b1, b2, d1, d2, a1
 
@@ -668,7 +668,7 @@ end
   end
 
   def test_self_all_equals
-    a = util_spec "foo", "1", nil, "lib/foo.rb"
+    a = util_spec "foo", "1", "lib/foo.rb"
 
     install_specs a
     Gem::Specification.all = [a]
@@ -2272,7 +2272,7 @@ dependencies: []
 
   def test_require_already_activated
     save_loaded_features do
-      a1 = util_spec "a", "1", nil, "lib/d.rb"
+      a1 = util_spec "a", "1", "lib/d.rb"
 
       install_specs a1 # , a2, b1, b2, c1, c2
 
@@ -2293,8 +2293,8 @@ dependencies: []
       a2 = util_spec "a", "2", "b" => "> 0"
       b1 = util_spec "b", "1", "c" => ">= 1"
       b2 = util_spec "b", "2", "c" => ">= 2"
-      c1 = util_spec "c", "1", nil, "lib/d.rb"
-      c2 = util_spec("c", "2", { "a" => "1" }, "lib/d.rb") # conflicts with a-2
+      c1 = util_spec "c", "1", "lib/d.rb"
+      c2 = util_spec("c", "2", "lib/d.rb", "a" => "1") # conflicts with a-2
 
       install_specs c1, b1, a1, a2, c2, b2
 
@@ -3754,7 +3754,7 @@ end
     assert_equal [], Gem::Specification.map(&:full_name)
 
     default_gem_spec = new_default_spec("default", "2.0.0.0",
-                                        nil, "default/gem.rb")
+                                        "default/gem.rb")
     spec_path = File.join(@default_spec_dir, default_gem_spec.spec_name)
     write_file(spec_path) do |file|
       file.print(default_gem_spec.to_ruby)

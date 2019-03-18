@@ -347,7 +347,7 @@ gem 'other', version
       :install_dir => "/non/existent"
     }
 
-    inst = Gem::Installer.at '', options
+    inst = Gem::Installer.at '', **options
 
     Gem::Installer.path_warning = false
 

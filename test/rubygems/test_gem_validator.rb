@@ -35,7 +35,7 @@ class TestGemValidator < Gem::TestCase
   end
 
   def test_alien_default
-    new_default_spec 'c', 1, nil, 'lib/c.rb'
+    new_default_spec 'c', 1, 'lib/c.rb'
 
     alien = @validator.alien 'c'
 

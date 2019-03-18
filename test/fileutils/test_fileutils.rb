@@ -262,7 +262,7 @@ class TestFileUtils < Test::Unit::TestCase
       assert cmp(fname, fname), 'not same?'
     end
     assert_raise(ArgumentError) {
-      cmp TARGETS[0], TARGETS[0], :undefinedoption => true
+      cmp TARGETS[0], TARGETS[0], :undefinedoption => true # XXX: ???
     }
 
     # pathname

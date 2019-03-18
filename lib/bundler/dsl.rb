@@ -80,7 +80,7 @@ module Bundler
 
         group(development_group) do
           spec.development_dependencies.each do |dep|
-            gem dep.name, *(dep.requirement.as_list + [:type => :development])
+            gem dep.name, *dep.requirement.as_list, type: :development
           end
         end
       when 0
@@ -91,8 +91,8 @@ module Bundler
       end
     end
 
-    def gem(name, *args)
-      options = args.last.is_a?(Hash) ? args.pop.dup : {}
+    def gem(name, *args, **options)
+      options = options.dup
       options["gemfile"] = @gemfile
       version = args || [">= 0"]
 

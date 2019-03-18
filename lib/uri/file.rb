@@ -44,9 +44,9 @@ module URI
     #       :path => '/ruby/src'})
     #     uri2.to_s  # => "file://host.example.com/ruby/src"
     #
-    def self.build(args)
+    def self.build(**args)
       tmp = Util::make_components_hash(self, args)
-      super(tmp)
+      super(**tmp)
     end
 
     # Protected setter for the host component +v+.

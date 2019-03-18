@@ -695,12 +695,12 @@ class TestGemResolver < Gem::TestCase
   end
 
   def test_second_level_backout
-    b1 = util_spec "b", "1", { "c" => ">= 1" }, "lib/b.rb"
-    b2 = util_spec "b", "2", { "c" => ">= 2" }, "lib/b.rb"
+    b1 = util_spec "b", "1", "lib/b.rb", "c" => ">= 1"
+    b2 = util_spec "b", "2", "lib/b.rb", "c" => ">= 2"
     c1 = util_spec "c", "1"
     c2 = util_spec "c", "2"
-    d1 = util_spec "d", "1", { "c" => "< 2" },  "lib/d.rb"
-    d2 = util_spec "d", "2", { "c" => "< 2" },  "lib/d.rb"
+    d1 = util_spec "d", "1", "lib/d.rb", "c" => "< 2"
+    d2 = util_spec "d", "2", "lib/d.rb", "c" => "< 2"
 
     s = set(b1, b2, c1, c2, d1, d2)
 

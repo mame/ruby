@@ -293,8 +293,8 @@ class Resolv
     # Yields the created DNS resolver to the block, if given, otherwise
     # returns it.
 
-    def self.open(*args)
-      dns = new(*args)
+    def self.open(*args, **kw)
+      dns = new(*args, **kw)
       return dns unless block_given?
       begin
         yield dns
@@ -328,9 +328,9 @@ class Resolv
     #                   :search => ['ruby-lang.org'],
     #                   :ndots => 1)
 
-    def initialize(config_info=nil)
+    def initialize(**config_info)
       @mutex = Thread::Mutex.new
-      @config = Config.new(config_info)
+      @config = Config.new(**config_info)
       @initialized = nil
     end
 
@@ -928,7 +928,7 @@ class Resolv
     end
 
     class Config # :nodoc:
-      def initialize(config_info=nil)
+      def initialize(**config_info)
         @mutex = Thread::Mutex.new
         @config_info = config_info
         @initialized = nil
@@ -2608,12 +2608,8 @@ class Resolv
     #   Must contain :nameserver or :nameserver_port like
     #   Resolv::DNS#initialize.
 
-    def initialize(config_info=nil)
-      if config_info then
-        super({ nameserver_port: Addresses }.merge(config_info))
-      else
-        super(nameserver_port: Addresses)
-      end
+    def initialize(**config_info)
+      super(nameserver_port: Addresses, **config_info)
     end
 
     ##

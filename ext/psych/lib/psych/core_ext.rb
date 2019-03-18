@@ -9,8 +9,8 @@ class Object
   #
   # Convert an object to YAML.  See Psych.dump for more information on the
   # available +options+.
-  def to_yaml options = {}
-    Psych.dump self, options
+  def to_yaml **options
+    Psych.dump self, **options
   end
 end
 

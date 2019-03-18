@@ -53,7 +53,7 @@ class TestGemResolverGitSpecification < Gem::TestCase
 
     called = false
 
-    git_spec.install({}) do |installer|
+    git_spec.install do |installer|
       called = installer
     end
 
@@ -89,7 +89,7 @@ class TestGemResolverGitSpecification < Gem::TestCase
 
     git_spec = Gem::Resolver::GitSpecification.new @set, spec, source
 
-    git_spec.install({})
+    git_spec.install
 
     assert_path_exists File.join git_spec.spec.extension_dir, 'b.rb'
   end
@@ -99,11 +99,11 @@ class TestGemResolverGitSpecification < Gem::TestCase
 
     git_spec = Gem::Resolver::GitSpecification.new @set, @spec
 
-    git_spec.install({})
+    git_spec.install
 
     called = false
 
-    git_spec.install({}) do |installer|
+    git_spec.install do |installer|
       called = installer
     end
 

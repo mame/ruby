@@ -76,28 +76,28 @@ module URI
     # URI::Generic::build. But, if exception URI::InvalidComponentError is raised,
     # then it does URI::Escape.escape all URI components and tries again.
     #
-    def self.build2(args)
+    def self.build2(*args, **kw)
       begin
-        return self.build(args)
+        return self.build(*args, **kw)
       rescue InvalidComponentError
-        if args.kind_of?(Array)
-          return self.build(args.collect{|x|
+        if args[0].kind_of?(Array)
+          return self.build(args[0].collect{|x|
             if x.is_a?(String)
               DEFAULT_PARSER.escape(x)
             else
               x
             end
           })
-        elsif args.kind_of?(Hash)
+        elsif !kw.empty?
           tmp = {}
-          args.each do |key, value|
+          kw.each do |key, value|
             tmp[key] = if value
                 DEFAULT_PARSER.escape(value)
               else
                 value
               end
           end
-          return self.build(tmp)
+          return self.build(**tmp)
         end
       end
     end
@@ -114,14 +114,14 @@ module URI
     # opaque, query, and fragment. You can provide arguments either by an Array or a Hash.
     # See ::new for hash keys to use or for order of array items.
     #
-    def self.build(args)
+    def self.build(args=nil, **kw)
       if args.kind_of?(Array) &&
           args.size == ::URI::Generic::COMPONENT.size
         tmp = args.dup
-      elsif args.kind_of?(Hash)
+      elsif !kw.empty?
         tmp = ::URI::Generic::COMPONENT.collect do |c|
-          if args.include?(c)
-            args[c]
+          if kw.include?(c)
+            kw[c]
           else
             nil
           end

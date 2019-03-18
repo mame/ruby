@@ -356,10 +356,8 @@ class Gem::RequestSet::GemDependencyAPI
   # tag: ::
   #   Use the given tag for git:, gist: and github: dependencies.
 
-  def gem(name, *requirements)
-    options = requirements.pop if requirements.last.kind_of?(Hash)
-    options ||= {}
-
+  def gem(name, *requirements, **options)
+    options = options.dup
     options[:git] = @current_repository if @current_repository
 
     source_set = false
@@ -637,7 +635,8 @@ Gem dependencies file #{@path} includes git reference for both ref/branch and ta
   #   The group to add development dependencies to.  By default this is
   #   :development.  Only one group may be specified.
 
-  def gemspec(options = {})
+  def gemspec(**options)
+    options = options.dup
     name              = options.delete(:name) || '{,*}'
     path              = options.delete(:path) || '.'
     development_group = options.delete(:development_group) || :development
@@ -784,7 +783,7 @@ Gem dependencies file #{@path} includes git reference for both ref/branch and ta
   # version.  This matching is performed by using the RUBY_ENGINE and
   # engine_specific VERSION constants.  (For JRuby, JRUBY_VERSION).
 
-  def ruby(version, options = {})
+  def ruby(version, **options)
     engine         = options[:engine]
     engine_version = options[:engine_version]
 

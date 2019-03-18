@@ -116,7 +116,7 @@ module Bundler
     definition_method :current_dependencies
     definition_method :requires
 
-    def lock(opts = {})
+    def lock(**opts)
       return if @definition.nothing_changed? && !@definition.unlocking?
       @definition.lock(Bundler.default_lockfile, opts[:preserve_unknown_sections])
     end

@@ -571,7 +571,7 @@ class Gem::TestCase < (defined?(Minitest::Test) ? Minitest::Test : MiniTest::Uni
   ##
   # Builds and installs the Gem::Specification +spec+
 
-  def install_gem(spec, options = {})
+  def install_gem(spec, **options)
     require 'rubygems/installer'
 
     gem = File.join @tempdir, "gems", "#{spec.full_name}.gem"
@@ -586,7 +586,7 @@ class Gem::TestCase < (defined?(Minitest::Test) ? Minitest::Test : MiniTest::Uni
       gem = File.join(@tempdir, File.basename(spec.cache_file)).untaint
     end
 
-    Gem::Installer.at(gem, options.merge({:wrappers => true})).install
+    Gem::Installer.at(gem, **options, :wrappers => true).install
   end
 
   ##
@@ -864,8 +864,8 @@ class Gem::TestCase < (defined?(Minitest::Test) ? Minitest::Test : MiniTest::Uni
   end
   deprecate :new_spec, :none, 2018, 12
 
-  def new_default_spec(name, version, deps = nil, *files)
-    spec = util_spec name, version, deps
+  def new_default_spec(name, version, *files, **deps)
+    spec = util_spec name, version, **deps
 
     spec.loaded_from = File.join(@default_spec_dir, spec.spec_name)
     spec.files = files
@@ -887,8 +887,8 @@ class Gem::TestCase < (defined?(Minitest::Test) ? Minitest::Test : MiniTest::Uni
   # Creates a spec with +name+, +version+.  +deps+ can specify the dependency
   # or a +block+ can be given for full customization of the specification.
 
-  def util_spec(name, version = 2, deps = nil, *files) # :yields: specification
-    raise "deps or block, not both" if deps and block_given?
+  def util_spec(name, version = 2, *files, **deps) # :yields: specification
+    raise "deps or block, not both" if !deps.empty? and block_given?
 
     spec = Gem::Specification.new do |s|
       s.platform    = Gem::Platform::RUBY
@@ -937,11 +937,11 @@ class Gem::TestCase < (defined?(Minitest::Test) ? Minitest::Test : MiniTest::Uni
   # in <tt>File.join @tempdir, 'gems'</tt>.  The specification and .gem file
   # location are returned.
 
-  def util_gem(name, version, deps = nil, &block)
+  def util_gem(name, version, **deps, &block)
     # TODO: deprecate
-    raise "deps or block, not both" if deps and block
+    raise "deps or block, not both" if !deps.empty? and block
 
-    if deps
+    if !deps.empty?
       block = proc do |s|
         # Since Hash#each is unordered in 1.8, sort
         # the keys and iterate that way so the tests are

@@ -464,7 +464,7 @@ ruby "0"
     reqs       = []
     installers = []
 
-    installed = rs.install({}) do |req, installer|
+    installed = rs.install do |req, installer|
       reqs       << req
       installers << installer
     end

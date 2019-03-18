@@ -392,13 +392,8 @@ EOC
       end
     end
 
-    def csv_attr_reader(*attrs)
-      separator = nil
-      if attrs.last.is_a?(Hash)
-        options = attrs.pop
-        separator = options[:separator]
-      end
-      separator ||= ", "
+    def csv_attr_reader(*attrs, **options)
+      separator = options[:separator] || ", "
       attrs.each do |attr|
         module_eval(<<-EOC, __FILE__, __LINE__ + 1)
           attr_reader(:#{attr})

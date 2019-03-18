@@ -139,7 +139,7 @@ class TestRDocGeneratorDarkfish < RDoc::TestCase
     dst = File.join @tmpdir, File.basename(src)
     options = {}
 
-    @g.install_rdoc_static_file src, dst, options
+    @g.install_rdoc_static_file src, dst, **options
 
     assert_file dst
 
@@ -149,7 +149,7 @@ class TestRDocGeneratorDarkfish < RDoc::TestCase
       return # hard links are not supported, no further tests needed
     end
 
-    @g.install_rdoc_static_file src, dst, options
+    @g.install_rdoc_static_file src, dst, **options
 
     assert_hard_link dst
   end
@@ -159,7 +159,7 @@ class TestRDocGeneratorDarkfish < RDoc::TestCase
     dst = File.join @tmpdir, File.basename(src)
     options = {}
 
-    @g.install_rdoc_static_file src, dst, options
+    @g.install_rdoc_static_file src, dst, **options
 
     refute_file dst
   end

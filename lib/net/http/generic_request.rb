@@ -217,7 +217,7 @@ class Net::HTTPGenericRequest
     opt = @form_option.dup
     require 'securerandom' unless defined?(SecureRandom)
     opt[:boundary] ||= SecureRandom.urlsafe_base64(40)
-    self.set_content_type(self.content_type, boundary: opt[:boundary])
+    self.set_content_type(self.content_type, { boundary: opt[:boundary] })
     if chunked?
       write_header sock, ver, path
       encode_multipart_form_data(sock, params, opt)

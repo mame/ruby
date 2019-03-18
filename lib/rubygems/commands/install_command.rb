@@ -28,7 +28,7 @@ class Gem::Commands::InstallCommand < Gem::Command
       :without_groups    => [],
     })
 
-    super 'install', 'Install a gem into the local repository', defaults
+    super 'install', 'Install a gem into the local repository', **defaults
 
     add_install_update_options
     add_local_remote_options
@@ -205,7 +205,7 @@ You can use `i` command instead of `install`.
         say "  #{activation_request.full_name}"
       end
     else
-      @installed_specs.concat request_set.install options
+      @installed_specs.concat request_set.install **options
     end
 
     show_install_errors dinst.errors

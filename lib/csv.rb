@@ -506,7 +506,7 @@ class CSV
   #
   def self.foreach(path, **options, &block)
     return to_enum(__method__, path, options) unless block_given?
-    open(path, options) do |csv|
+    open(path, **options) do |csv|
       csv.each(&block)
     end
   end
@@ -637,7 +637,7 @@ class CSV
     file_opts = {universal_newline: false}.merge(options)
 
     begin
-      f = File.open(filename, mode, file_opts)
+      f = File.open(filename, mode, **file_opts)
     rescue ArgumentError => e
       raise unless /needs binmode/.match?(e.message) and mode == "r"
       mode = "rb"
@@ -675,8 +675,8 @@ class CSV
   # You pass your +str+ to read from, and an optional +options+ containing
   # anything CSV::new() understands.
   #
-  def self.parse(*args, &block)
-    csv = new(*args)
+  def self.parse(*args, **options, &block)
+    csv = new(*args, **options)
 
     return csv.each(&block) if block_given?
 
@@ -696,7 +696,7 @@ class CSV
   # The +options+ parameter can be anything CSV::new() understands.
   #
   def self.parse_line(line, **options)
-    new(line, options).shift
+    new(line, **options).shift
   end
 
   #
@@ -710,13 +710,13 @@ class CSV
   # <tt>encoding: "UTF-32BE:UTF-8"</tt> would read UTF-32BE data from the file
   # but transcode it to UTF-8 before CSV parses it.
   #
-  def self.read(path, *options)
-    open(path, *options) { |csv| csv.read }
+  def self.read(path, *options, **kw)
+    open(path, *options, **kw) { |csv| csv.read }
   end
 
   # Alias for CSV::read().
-  def self.readlines(*args)
-    read(*args)
+  def self.readlines(*args, **kw)
+    read(*args, **kw)
   end
 
   #
@@ -727,9 +727,9 @@ class CSV
   #                     header_converters: :symbol }.merge(options) )
   #
   def self.table(path, **options)
-    read( path, { headers:           true,
-                  converters:        :numeric,
-                  header_converters: :symbol }.merge(options) )
+    read( path, headers:           true,
+                converters:        :numeric,
+                header_converters: :symbol, **options )
   end
 
   #

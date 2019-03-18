@@ -143,7 +143,7 @@ class Gem::RequestSet
   # The +installer+ will be +nil+ if a gem matching the request was already
   # installed.
 
-  def install(options, &block) # :yields: request, installer
+  def install(**options, &block) # :yields: request, installer
     if dir = options[:install_dir]
       requests = install_into dir, false, options, &block
       return requests
@@ -171,7 +171,7 @@ class Gem::RequestSet
         # means the thread should stop.
         while req = download_queue.pop
           break if req == :stop
-          req.spec.download options unless req.installed?
+          req.spec.download **options unless req.installed?
         end
       end
     end
@@ -192,7 +192,7 @@ class Gem::RequestSet
 
       spec =
         begin
-          req.spec.install options do |installer|
+          req.spec.install **options do |installer|
             yield req, installer if block_given?
           end
         rescue Gem::RuntimeRequirementNotMetError => e
@@ -253,7 +253,7 @@ class Gem::RequestSet
         @resolver.stats.display
       end
     else
-      installed = install options, &block
+      installed = install **options, &block
 
       if options.fetch :lock, true
         lockfile =
@@ -288,7 +288,7 @@ class Gem::RequestSet
         next
       end
 
-      spec.install options do |installer|
+      spec.install **options do |installer|
         yield request, installer if block_given?
       end
 

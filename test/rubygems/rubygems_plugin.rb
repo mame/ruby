@@ -13,7 +13,7 @@ end
 class Gem::Commands::InterruptCommand < Gem::Command
 
   def initialize
-    super('interrupt', 'Raises an Interrupt Exception', {})
+    super('interrupt', 'Raises an Interrupt Exception')
   end
 
   def execute

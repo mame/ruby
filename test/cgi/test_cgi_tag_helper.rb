@@ -349,6 +349,8 @@ class CGITagHelperTest < Test::Unit::TestCase
     assert_equal('<FOOTER></FOOTER>',cgi.footer)
     assert_equal('<ARTICLE></ARTICLE>',cgi.article)
     assert_equal('<SECTION></SECTION>',cgi.section)
+
+    cgi.html("BLA"=>"TEST"){}
     assert_equal('<!DOCTYPE HTML><HTML BLA="TEST"></HTML>',cgi.html("BLA"=>"TEST"){})
   end
 
