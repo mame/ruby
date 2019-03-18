@@ -4412,12 +4412,6 @@ assocs		: assoc
 			    assocs = tail;
 			}
 			else if (tail) {
-			    if (assocs->nd_head &&
-				!tail->nd_head && nd_type(tail->nd_next) == NODE_ARRAY &&
-				nd_type(tail->nd_next->nd_head) == NODE_HASH) {
-				/* DSTAR */
-				tail = tail->nd_next->nd_head->nd_head;
-			    }
 			    assocs = list_concat(assocs, tail);
 			}
 			$$ = assocs;
@@ -4455,11 +4449,7 @@ assoc		: arg_value tASSOC arg_value
 		| tDSTAR arg_value
 		    {
 		    /*%%%*/
-			if (nd_type($2) == NODE_HASH &&
-			    !($2->nd_head && $2->nd_head->nd_alen))
-			    $$ = 0;
-			else
-			    $$ = list_append(p, NEW_LIST(0, &@$), $2);
+			$$ = list_append(p, NEW_LIST(0, &@$), $2);
 		    /*% %*/
 		    /*% ripper: assoc_splat!($2) %*/
 		    }
