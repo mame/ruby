@@ -5788,9 +5788,6 @@ gc_mark_roots(rb_objspace_t *objspace, const char **categoryp)
     MARK_CHECKPOINT("end_proc");
     rb_mark_end_proc();
 
-    MARK_CHECKPOINT("global_tbl");
-    rb_gc_mark_global_tbl();
-
     MARK_CHECKPOINT("object_id");
     rb_gc_mark(objspace->next_object_id);
     mark_tbl_no_pin(objspace, objspace->obj_to_id_tbl); /* Only mark ids */
@@ -8564,7 +8561,6 @@ gc_update_references(rb_objspace_t * objspace)
     objspace_each_objects_without_setup(objspace, gc_ref_update, objspace);
     rb_vm_update_references(vm);
     rb_transient_heap_update_references();
-    rb_gc_update_global_tbl();
     global_symbols.ids = rb_gc_location(global_symbols.ids);
     global_symbols.dsymbol_fstr_hash = rb_gc_location(global_symbols.dsymbol_fstr_hash);
     gc_update_tbl_refs(objspace, objspace->obj_to_id_tbl);
