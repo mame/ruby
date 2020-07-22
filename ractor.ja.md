@@ -133,7 +133,7 @@ end
   * `Ractor#send`（`Ractor#<<` が alias）は、対象 Ractor の incoming port へメッセージを送信する。incoming port は無限サイズの incoming queue に接続されているので、`Ractor#send` はブロックしない。
   * `Ractor.recv` で、自 Ractor の incoming queue からメッセージを一つ取り出す。incoming queue が空ならブロックする
 * (1-2) yield/take（pull 型通信？）
-  * `Ractor.yield(obj)` でメッセージを `Ractor#taks` している Ractor へ送信する
+  * `Ractor.yield(obj)` でメッセージを `Ractor#take` している Ractor へ送信する
   * どちらも、相手が発生するまでブロックする
 * `Ractor.select()` で、take, recv, yield のどれかが成功するまで待つことができる
 * port は close することができる

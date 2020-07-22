@@ -21,7 +21,7 @@ Ractors don't share everything, unlike threads.
 
 * Most of objects are *Unshareable objects*, so you don't need to care about thread-safety problem which is caused by sharing.
 * Some objects are *Shareable objects*.
-  * Immutable objects: frozen object which doesn't refer unshareable-objcts.
+  * Immutable objects: frozen object which doesn't refer unshareable-objects.
     * `i = 123`: `i` is an immutable object.
     * `s = "str".freeze`: `s` is an immutable object.
     * `a = [1, [2], 3].freeze`: `a` is not an immutable object because `a` refer unshareable-object `[2]` (which is not frozen).
@@ -48,7 +48,7 @@ Ractors communicate each other and synchronize the execution by message exchangi
 
 To send unshareable objects as messages, objects are copied or moved.
 
-* Copy: use deep-copy (like druby)
+* Copy: use deep-copy (like dRuby)
 * Move: move membership
   * Sender can not access to the moved object after moving the object.
   * Guarantee that at least only 1 Ractor can access the object.
@@ -65,7 +65,7 @@ Ractor helps to write a thread-safe program, but we can make thread-unsafe progr
   * Ruby programmer should take care if they modify class/module objects on multi Ractor programs.
 * BAD: Ractor can't solve all thread-safety problems
   * There are several blocking operations (waiting send, waiting yield and waiting take) so you can make a program which has dead-lock and live-lock issues.
-  * Some kind of shareable objects can introduce transactions (STM, for example). However, misusing transactions will genearte inconsistent state.
+  * Some kind of shareable objects can introduce transactions (STM, for example). However, misusing transactions will generate inconsistent state.
 
 Without Ractor, we need to trace all of state-mutations to debug thread-safety issues.
 With Ractor, you can concentrate to suspicious 
@@ -187,7 +187,7 @@ Communication between Ractors is achieved by message passing and shareable-objec
 Users can control blocking on (1), but should not control on (2) (only manage as critical section).
 
 * (1-1) send/recv (push type)
-  * `Ractor#send(obj)` (`Ractor#<<(obj)` is an aliase) send a message to the Ractor's incoming port. Incoming port is connected to the infinite size incoming queue so `Ractor#send` will never block.
+  * `Ractor#send(obj)` (`Ractor#<<(obj)` is an aliases) send a message to the Ractor's incoming port. Incoming port is connected to the infinite size incoming queue so `Ractor#send` will never block.
   * `Ractor.recv` dequeue a message from own incoming queue. If the incoming queue is empty, `Ractor.recv` calling will block.
 * (1-2) yield/take (pull type)
   * `Ractor.yield(obj)` send an message to a Ractor which are calling `Ractor#take` via outgoing port . If no Ractors are waiting for it, the `Ractor.yield(obj)` will block. If multiple Ractors are waiting for `Ractor.yield(obj)`, only one Ractor can receive the message.
@@ -445,7 +445,7 @@ str = 'hello'
 r.send str, move: true
 modified = r.take #=> 'hello world'
 
-# str is moved, and accessing str from this Ractor is prohibitted
+# str is moved, and accessing str from this Ractor is prohibited
 
 begin
   # Error because it touches moved str.
@@ -476,7 +476,7 @@ end
 Now only `T_FILE`, `T_STRING` and `T_ARRAY` objects are supported.
 
 * `T_FILE` (`IO`, `File`): support to send accepted socket etc.
-* `T_STRING` (`String`): suppport to send a huge string without copying (fast).
+* `T_STRING` (`String`): support to send a huge string without copying (fast).
 * `T_ARRAY` (`Array'): support to send a huge Array without re-allocating the array's buffer. However, all of referred objects from the array should be moved, so it is not so fast.
 
 To achieve the access prohibition for moved objects, _class replacement_ technique is used to implement it. 
@@ -528,7 +528,7 @@ Implementation: Now shareable objects (`RVALUE`) have `FL_SHAREABLE` flag. This 
 
 To isolate unshareable objects between Ractors, we introduced additional language semantics on multi-Ractor.
 
-Note that without using Ractors, these additional semantices is not needed (100% compatible with Ruby 2).
+Note that without using Ractors, these additional semantics is not needed (100% compatible with Ruby 2).
 
 ### Global variables
 
@@ -585,7 +585,7 @@ Only main Ractor can access instance variables of shareable objects.
   end
 ```
 
-Note that instance variables for class/module objects are also prohibitted on Ractors.
+Note that instance variables for class/module objects are also prohibited on Ractors.
 
 ### Class variables
 
