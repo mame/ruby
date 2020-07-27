@@ -103,7 +103,10 @@ assert_equal 'ok', %q{
   r = Ractor.new do
     'finish'
   end
+
   r.take
+  sleep 0.1 # wait for terminate
+
   begin
     o = r.take
   rescue Ractor::ClosedError
@@ -118,6 +121,7 @@ assert_equal 'ok', %q{
   end
 
   r.take # closed
+  sleep 0.1 # wait for terminate
 
   begin
     r.send(1)
