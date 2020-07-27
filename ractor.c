@@ -1149,8 +1149,15 @@ ractor_close_outgoing(rb_execution_context_t *ec, rb_ractor_t *cr)
 static uint32_t
 ractor_next_id(void)
 {
-    // TODO: lock
-    return ++ractor_last_id;
+    uint32_t id;
+
+    RB_VM_LOCK();
+    {
+        id = ++ractor_last_id;
+    }
+    RB_VM_UNLOCK();
+
+    return id;
 }
 
 static void
