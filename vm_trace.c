@@ -29,6 +29,7 @@
 #include "mjit.h"
 #include "ruby/debug.h"
 #include "vm_core.h"
+#include "ractor.h"
 
 #include "builtin.h"
 
@@ -1653,7 +1654,8 @@ rb_workqueue_register(unsigned flags, rb_postponed_job_func_t func, void *data)
     list_add_tail(&vm->workqueue, &wq_job->jnode);
     rb_nativethread_lock_unlock(&vm->workqueue_lock);
 
-    RUBY_VM_SET_POSTPONED_JOB_INTERRUPT(GET_EC());
+    // TODO: current implementation affects only main ractor
+    RUBY_VM_SET_POSTPONED_JOB_INTERRUPT(vm->ractor.main_ractor->threads.running_ec);
 
     return TRUE;
 }
