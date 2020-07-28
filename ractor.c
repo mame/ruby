@@ -1277,7 +1277,6 @@ ractor_init(rb_ractor_t *r, VALUE name, VALUE loc)
     // naming
     r->name = name;
     r->loc = loc;
-    r->id = ractor_next_id(); // can block here
 }
 
 void
@@ -1297,6 +1296,9 @@ ractor_create(rb_execution_context_t *ec, VALUE self, VALUE loc, VALUE name, VAL
     VALUE rv = ractor_alloc(self);
     rb_ractor_t *r = RACTOR_PTR(rv);
     ractor_init(r, name, loc);
+
+    // can block here
+    r->id = ractor_next_id();
 
     RUBY_DEBUG_LOG("r:%u", r->id);
 
