@@ -572,7 +572,6 @@ rb_vm_get_binding_creatable_next_cfp(const rb_execution_context_t *ec, const rb_
 MJIT_FUNC_EXPORTED rb_control_frame_t *
 rb_vm_get_ruby_level_next_cfp(const rb_execution_context_t *ec, const rb_control_frame_t *cfp)
 {
-    if (RUBY_VM_CONTROL_FRAME_STACK_OVERFLOW_P(ec, cfp)) bp();
     while (!RUBY_VM_CONTROL_FRAME_STACK_OVERFLOW_P(ec, cfp)) {
 	if (VM_FRAME_RUBYFRAME_P(cfp)) {
 	    return (rb_control_frame_t *)cfp;
