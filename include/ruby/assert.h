@@ -28,7 +28,7 @@
 #include "ruby/backward/2/assume.h"
 
 #ifndef RUBY_DEBUG
-# define RUBY_DEBUG 1
+# define RUBY_DEBUG 0
 #endif
 
 #if RUBY_DEBUG > 0 && defined(NDEBUG)
