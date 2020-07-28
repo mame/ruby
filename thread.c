@@ -782,6 +782,7 @@ thread_start_func_2(rb_thread_t *th, VALUE *stack_start)
         RB_VM_LOCK();
         {
             rb_vm_ractor_blocking_cnt_dec(th->vm, th->ractor, __FILE__, __LINE__);
+            rb_gc_start();
         }
         RB_VM_UNLOCK();
     }
@@ -870,9 +871,6 @@ thread_start_func_2(rb_thread_t *th, VALUE *stack_start)
 	rb_threadptr_unlock_all_locking_mutexes(th);
 	rb_check_deadlock(th->ractor);
 
-	/* delete self other than main thread from living_threads */
-	rb_ractor_living_threads_remove(th->ractor, th);
-
         rb_fiber_close(th->ec->fiber_ptr);
     }
 
@@ -880,6 +878,9 @@ thread_start_func_2(rb_thread_t *th, VALUE *stack_start)
     VM_ASSERT(th->ec->vm_stack == NULL);
 
     gvl_release(rb_ractor_gvl(th->ractor));
+
+    // thread (and ractor) itself will be collected after this line:
+    rb_ractor_living_threads_remove(th->ractor, th);
 
     return 0;
 }

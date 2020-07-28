@@ -1201,10 +1201,11 @@ vm_insert_ractor(rb_vm_t *vm, rb_ractor_t *r)
 }
 
 static void
-vm_remove_ractor(rb_vm_t *vm, rb_ractor_t *r)
+vm_remove_ractor(rb_vm_t *vm, rb_ractor_t *cr)
 {
-    VM_ASSERT(ractor_status_p(r, ractor_running));
+    VM_ASSERT(ractor_status_p(cr, ractor_running));
     VM_ASSERT(vm->ractor.cnt > 1);
+    VM_ASSERT(cr->threads.cnt == 1);
 
     RB_VM_LOCK();
     {
@@ -1212,14 +1213,14 @@ vm_remove_ractor(rb_vm_t *vm, rb_ractor_t *r)
                        vm->ractor.cnt,  vm->ractor.sync.terminate_waiting);
 
         VM_ASSERT(vm->ractor.cnt > 0);
-        list_del(&r->vmlr_node);
+        list_del(&cr->vmlr_node);
 
         if (vm->ractor.cnt <= 2 && vm->ractor.sync.terminate_waiting) {
             rb_native_cond_signal(&vm->ractor.sync.terminate_cond);
         }
         vm->ractor.cnt--;
 
-        ractor_status_set(r, ractor_terminated);
+        ractor_status_set(cr, ractor_terminated);
     }
     RB_VM_UNLOCK();
 }
@@ -1505,15 +1506,16 @@ rb_ractor_living_threads_remove(rb_ractor_t *cr, rb_thread_t *th)
     RUBY_DEBUG_LOG("r->threads.cnt:%d--", cr->threads.cnt);
     ractor_check_blocking(cr, cr->threads.cnt - 1, __FILE__, __LINE__);
 
-    RACTOR_LOCK(cr);
-    {
-        list_del(&th->lt_node);
-        cr->threads.cnt--;
-    }
-    RACTOR_UNLOCK(cr);
-
-    if (cr->threads.cnt == 0) {
+    if (cr->threads.cnt == 1) {
         vm_remove_ractor(th->vm, cr);
+    }
+    else {
+        RACTOR_LOCK(cr);
+        {
+            list_del(&th->lt_node);
+            cr->threads.cnt--;
+        }
+        RACTOR_UNLOCK(cr);
     }
 }
 
