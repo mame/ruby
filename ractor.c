@@ -1225,16 +1225,11 @@ vm_remove_ractor(rb_vm_t *vm, rb_ractor_t *r)
 }
 
 static VALUE
-ractor_alloc(VALUE klass, VALUE name, VALUE loc)
+ractor_alloc(VALUE klass)
 {
     rb_ractor_t *r;
     VALUE rv = TypedData_Make_Struct(klass, rb_ractor_t, &ractor_data_type, r);
     FL_SET_RAW(rv, RUBY_FL_SHAREABLE);
-
-    // naming
-    r->id = ractor_next_id();
-    r->name = name;
-    r->loc = loc;
     r->self = rv;
     VM_ASSERT(ractor_status_p(r, ractor_created));
     return rv;
@@ -1267,7 +1262,7 @@ rb_ractor_living_threads_init(rb_ractor_t *r)
 }
 
 static void
-ractor_init(rb_ractor_t *r)
+ractor_init(rb_ractor_t *r, VALUE name, VALUE loc)
 {
     ractor_queue_setup(&r->incoming_queue);
     rb_native_mutex_initialize(&r->lock);
@@ -1277,6 +1272,11 @@ ractor_init(rb_ractor_t *r)
     // thread management
     rb_gvl_init(&r->threads.gvl);
     rb_ractor_living_threads_init(r);
+
+    // naming
+    r->name = name;
+    r->loc = loc;
+    r->id = ractor_next_id(); // can block here
 }
 
 void
@@ -1284,7 +1284,7 @@ rb_ractor_main_setup(rb_vm_t *vm, rb_ractor_t *r, rb_thread_t *th)
 {
     r->self = TypedData_Wrap_Struct(rb_cRactor, &ractor_data_type, r);
     FL_SET_RAW(r->self, RUBY_FL_SHAREABLE);
-    ractor_init(r);
+    ractor_init(r, Qnil, Qnil);
     r->threads.main = th;
 
     rb_ractor_living_threads_insert(r, th);
@@ -1293,9 +1293,9 @@ rb_ractor_main_setup(rb_vm_t *vm, rb_ractor_t *r, rb_thread_t *th)
 static VALUE
 ractor_create(rb_execution_context_t *ec, VALUE self, VALUE loc, VALUE name, VALUE args, VALUE block)
 {
-    VALUE rv = ractor_alloc(self, name, loc);
+    VALUE rv = ractor_alloc(self);
     rb_ractor_t *r = RACTOR_PTR(rv);
-    ractor_init(r);
+    ractor_init(r, name, loc);
 
     RUBY_DEBUG_LOG("r:%u", r->id);
 
