@@ -877,10 +877,8 @@ thread_start_func_2(rb_thread_t *th, VALUE *stack_start)
     thread_cleanup_func(th, FALSE);
     VM_ASSERT(th->ec->vm_stack == NULL);
 
-    gvl_release(rb_ractor_gvl(th->ractor));
-
-    // thread (and ractor) itself will be collected after this line:
     rb_ractor_living_threads_remove(th->ractor, th);
+    gvl_release(rb_ractor_gvl(th->ractor));
 
     return 0;
 }
