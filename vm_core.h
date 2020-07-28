@@ -1708,6 +1708,8 @@ MJIT_STATIC const rb_callable_method_entry_t *rb_vm_frame_method_entry(const rb_
 
 VALUE rb_catch_protect(VALUE t, rb_block_call_func *func, VALUE data, enum ruby_tag_type *stateptr);
 
+rb_execution_context_t *rb_vm_main_ractor_ec(rb_vm_t *vm); // ractor.c
+
 /* for thread */
 
 #if RUBY_VM_THREAD_MODEL == 2
