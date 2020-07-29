@@ -7354,17 +7354,25 @@ gc_reset_malloc_info(rb_objspace_t *objspace)
 static int
 garbage_collect(rb_objspace_t *objspace, int reason)
 {
+    int ret;
+
+    RB_VM_LOCK_ENTER();
+    {
 #if GC_PROFILE_MORE_DETAIL
-    objspace->profile.prepare_time = getrusage_time();
+        objspace->profile.prepare_time = getrusage_time();
 #endif
 
-    gc_rest(objspace);
+        gc_rest(objspace);
 
 #if GC_PROFILE_MORE_DETAIL
-    objspace->profile.prepare_time = getrusage_time() - objspace->profile.prepare_time;
+        objspace->profile.prepare_time = getrusage_time() - objspace->profile.prepare_time;
 #endif
 
-    return gc_start(objspace, reason);
+        ret = gc_start(objspace, reason);
+    }
+    RB_VM_LOCK_LEAVE();
+
+    return ret;
 }
 
 static int
@@ -7595,6 +7603,7 @@ gc_enter(rb_objspace_t *objspace, const char *event, unsigned int *lock_lev)
     mjit_gc_start_hook();
 
     during_gc = TRUE;
+    RUBY_DEBUG_LOG("%s (%s)", event, gc_current_status(objspace));
     gc_report(1, objspace, "gc_enter: %s [%s]\n", event, gc_current_status(objspace));
     gc_record(objspace, 0, event);
     gc_event_hook(objspace, RUBY_INTERNAL_EVENT_GC_ENTER, 0); /* TODO: which parameter should be passed? */
@@ -7607,6 +7616,7 @@ gc_exit(rb_objspace_t *objspace, const char *event, unsigned int *lock_lev)
 
     gc_event_hook(objspace, RUBY_INTERNAL_EVENT_GC_EXIT, 0); /* TODO: which parameter should be passsed? */
     gc_record(objspace, 1, event);
+    RUBY_DEBUG_LOG("%s (%s)", event, gc_current_status(objspace));
     gc_report(1, objspace, "gc_exit: %s [%s]\n", event, gc_current_status(objspace));
     during_gc = FALSE;
 
