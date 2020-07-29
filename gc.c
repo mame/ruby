@@ -1231,6 +1231,7 @@ check_rvalue_consistency_force(const VALUE obj, int terminate)
                 goto skip;
             }
         }
+        bp();
         fprintf(stderr, "check_rvalue_consistency: %p is not a Ruby object.\n", (void *)obj);
         err++;
       skip:

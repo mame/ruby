@@ -803,7 +803,6 @@ ractor_try_take(rb_execution_context_t *ec, rb_ractor_t *r)
             ractor_basket_clear(&r->wait.yielded_basket);
         }
         else if (r->outgoing_port_closed) {
-            bp();
             closed = true;
         }
         else {
