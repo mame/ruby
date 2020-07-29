@@ -1306,6 +1306,8 @@ ractor_create(rb_execution_context_t *ec, VALUE self, VALUE loc, VALUE name, VAL
     RUBY_DEBUG_LOG("r:%u", r->id);
 
     rb_thread_create_ractor(r, args, block);
+
+    RB_GC_GUARD(rv);
     return rv;
 }
 
