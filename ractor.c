@@ -179,10 +179,12 @@ ractor_mark(void *ptr)
     rb_gc_mark(r->loc);
     rb_gc_mark(r->name);
 
-    rb_thread_t *th;
-    list_for_each(&r->threads.set, th, lt_node) {
-        VM_ASSERT(th != NULL);
-        rb_gc_mark(th->self);
+    if (r->threads.cnt > 0) {
+        rb_thread_t *th;
+        list_for_each(&r->threads.set, th, lt_node) {
+            VM_ASSERT(th != NULL);
+            rb_gc_mark(th->self);
+        }
     }
 }
 
@@ -195,7 +197,7 @@ ractor_queue_free(struct rb_ractor_queue *rq)
 static void
 ractor_waiting_list_free(struct rb_ractor_waiting_list *wl)
 {
-    ruby_xfree(wl->ractors);
+    free(wl->ractors);
 }
 
 static void
@@ -641,11 +643,13 @@ ractor_register_taking(rb_ractor_t *r, rb_ractor_t *cr)
 
             if (wl->size == 0) {
                 wl->size = 1;
-                wl->ractors = ALLOC_N(rb_ractor_t *, wl->size);
+                wl->ractors = malloc(sizeof(rb_ractor_t *) * wl->size);
+                if (wl->ractors == NULL) rb_bug("can't allocate buffer");
             }
             else if (wl->size <= wl->cnt + 1) {
                 wl->size *= 2;
-                REALLOC_N(wl->ractors, rb_ractor_t *, wl->size);
+                wl->ractors = realloc(wl->ractors, sizeof(rb_ractor_t *) * wl->size);
+                if (wl->ractors == NULL) rb_bug("can't re-allocate buffer");
             }
             wl->ractors[wl->cnt++] = cr;
         }
