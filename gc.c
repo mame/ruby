@@ -6967,21 +6967,45 @@ void
 rb_gc_writebarrier(VALUE a, VALUE b)
 {
     rb_objspace_t *objspace = &rb_objspace;
+    bool retry;
 
     if (RGENGC_CHECK_MODE && SPECIAL_CONST_P(a)) rb_bug("rb_gc_writebarrier: a is special const");
     if (RGENGC_CHECK_MODE && SPECIAL_CONST_P(b)) rb_bug("rb_gc_writebarrier: b is special const");
 
+  retry_:
+    retry = false;
     if (!is_incremental_marking(objspace)) {
-	if (!RVALUE_OLD_P(a) || RVALUE_OLD_P(b)) {
-	    return;
-	}
-	else {
-	    gc_writebarrier_generational(a, b, objspace);
-	}
+        if (!RVALUE_OLD_P(a) || RVALUE_OLD_P(b)) {
+            // do nothing
+        }
+        else {
+            RB_VM_LOCK_ENTER(); // can change GC state
+            {
+                if (!is_incremental_marking(objspace)) {
+                    gc_writebarrier_generational(a, b, objspace);
+                }
+                else {
+                    retry = true;
+                }
+            }
+            RB_VM_LOCK_LEAVE();
+        }
     }
     else { /* slow path */
-	gc_writebarrier_incremental(a, b, objspace);
+        RB_VM_LOCK_ENTER(); // can change GC state
+        {
+            if (is_incremental_marking(objspace)) {
+                gc_writebarrier_incremental(a, b, objspace);
+            }
+            else {
+                retry = true;
+            }
+        }
+        RB_VM_LOCK_LEAVE();
     }
+    if (retry) goto retry_;
+
+    return;
 }
 
 void
