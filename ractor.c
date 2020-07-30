@@ -208,6 +208,7 @@ ractor_free(void *ptr)
     rb_native_cond_destroy(&r->wait.cond);
     ractor_queue_free(&r->incoming_queue);
     ractor_waiting_list_free(&r->taking_ractors);
+    ruby_xfree(r);
 }
 
 static size_t
@@ -1302,7 +1303,6 @@ ractor_create(rb_execution_context_t *ec, VALUE self, VALUE loc, VALUE name, VAL
 
     // can block here
     r->id = ractor_next_id();
-
     RUBY_DEBUG_LOG("r:%u", r->id);
 
     rb_thread_create_ractor(r, args, block);
