@@ -1109,7 +1109,7 @@ rb_generic_ivar_memsize(VALUE obj)
 {
     struct gen_ivtbl *ivtbl;
 
-    if (gen_ivtbl_get(obj, &ivtbl))
+    if (gen_ivtbl_get0(obj, &ivtbl, false))
 	return gen_ivtbl_bytes(ivtbl->numiv);
     return 0;
 }
