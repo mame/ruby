@@ -762,22 +762,12 @@ thread_start_func_2(rb_thread_t *th, VALUE *stack_start)
     VALUE * vm_stack = NULL;
 
     VM_ASSERT(th != th->vm->ractor.main_thread);
-
     thread_debug("thread start: %p\n", (void *)th);
 
-    // This assertion is not passed on win32 env. Check it later.
-    // VM_ASSERT((size * sizeof(VALUE)) <= th->ec->machine.stack_maxsize);
-
-    vm_stack = alloca(size * sizeof(VALUE));
-    VM_ASSERT(vm_stack);
-
-    gvl_acquire(rb_ractor_gvl(th->ractor), th);
-
-    rb_ec_initialize_vm_stack(th->ec, vm_stack, size);
-    th->ec->machine.stack_start = STACK_DIR_UPPER(vm_stack + size, vm_stack);
-    th->ec->machine.stack_maxsize -= size * sizeof(VALUE);
+    // setup native thread
     ruby_thread_set_native(th);
 
+    // setup ractor
     if (rb_ractor_status_p(th->ractor, ractor_blocking)) {
         RB_VM_LOCK();
         {
@@ -786,6 +776,19 @@ thread_start_func_2(rb_thread_t *th, VALUE *stack_start)
         }
         RB_VM_UNLOCK();
     }
+
+    // This assertion is not passed on win32 env. Check it later.
+    // VM_ASSERT((size * sizeof(VALUE)) <= th->ec->machine.stack_maxsize);
+
+    // setup VM and machine stack
+    vm_stack = alloca(size * sizeof(VALUE));
+    VM_ASSERT(vm_stack);
+
+    gvl_acquire(rb_ractor_gvl(th->ractor), th);
+
+    rb_ec_initialize_vm_stack(th->ec, vm_stack, size);
+    th->ec->machine.stack_start = STACK_DIR_UPPER(vm_stack + size, vm_stack);
+    th->ec->machine.stack_maxsize -= size * sizeof(VALUE);
 
     {
 	thread_debug("thread start (get lock): %p\n", (void *)th);
