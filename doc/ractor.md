@@ -177,10 +177,10 @@ end
 
 ## Communication between Ractors
 
-Communication between Ractors is achieved by message passing and shareable-objects.
+Communication between Ractors is achieved by sending and receiving messages.
 
-* (1) Message passing
-  * (1-1) push type send/recv (sender knows receiver). a.k.a. Actor model.
+* (1) Message sending/receiving
+  * (1-1) push type send/recv (sender knows receiver). similar to the Actor model.
   * (1-2) pull type yield/take (receiver knows sender).
 * (2) Using shareable container objects (not implemented yet)
 
@@ -429,7 +429,7 @@ else
 end
 ```
 
-## Send a message by moving
+### Send a message by moving
 
 `Ractor#send(obj, move: true)` or `Ractor.yield(obj, move: true)` move `obj` to the destination Ractor.
 If the source Ractor touches the moved object (for example, call the method like `obj.foo()`), it will be an error.
@@ -481,7 +481,7 @@ Now only `T_FILE`, `T_STRING` and `T_ARRAY` objects are supported.
 
 To achieve the access prohibition for moved objects, _class replacement_ technique is used to implement it. 
 
-### shareable objects
+### Shareable objects
 
 The following objects are shareable.
 
@@ -651,7 +651,7 @@ Only main Ractor can define constants which refer to the unshareable object.
 
 ## Examples
 
-### ring in actor model
+### Traditional Ring example in Actor-model
 
 ```ruby
 RN = 10000
@@ -673,7 +673,7 @@ r << 1
 p Ractor.recv
 ```
 
-### fork-join
+### Fork-join
 
 ```ruby
 def fib n
@@ -698,7 +698,7 @@ until rs.empty?
 end
 ```
 
-### worker pool
+### Worker pool
 
 ```ruby
 require 'prime'
@@ -729,7 +729,7 @@ pp (1..N).map{
 }.sort_by{|(n, b)| n}
 ```
 
-## Pipeline
+### Pipeline
 
 ```ruby
 # pipeline with yield/take
@@ -767,7 +767,7 @@ r1 << 'r0'
 p Ractor.recv #=> "r0r1r2r3"
 ```
 
-## Supervise
+### Supervise
 
 ```ruby
 # ring example again
