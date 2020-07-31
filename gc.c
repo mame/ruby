@@ -6294,8 +6294,8 @@ gc_verify_heap_pages(rb_objspace_t *objspace)
 static VALUE
 gc_verify_internal_consistency_m(VALUE dummy)
 {
+    ASSERT_vm_locking();
     gc_verify_internal_consistency(&rb_objspace);
-
     return Qnil;
 }
 
@@ -7420,12 +7420,13 @@ gc_start(rb_objspace_t *objspace, int reason)
     GC_ASSERT(gc_mode(objspace) == gc_mode_none);
     GC_ASSERT(!is_lazy_sweeping(heap_eden));
     GC_ASSERT(!is_incremental_marking(objspace));
-#if RGENGC_CHECK_MODE >= 2
-    gc_verify_internal_consistency(objspace);
-#endif
 
     unsigned int lock_lev;
     gc_enter(objspace, "gc_start", &lock_lev);
+
+#if RGENGC_CHECK_MODE >= 2
+    gc_verify_internal_consistency(objspace);
+#endif
 
     if (ruby_gc_stressful) {
 	int flag = FIXNUM_P(ruby_gc_stress_mode) ? FIX2INT(ruby_gc_stress_mode) : 0;
