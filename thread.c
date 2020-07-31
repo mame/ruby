@@ -766,13 +766,13 @@ thread_start_func_2(rb_thread_t *th, VALUE *stack_start)
 
     // setup native thread
     ruby_thread_set_native(th);
+    gvl_acquire(rb_ractor_gvl(th->ractor), th);
 
     // setup ractor
     if (rb_ractor_status_p(th->ractor, ractor_blocking)) {
         RB_VM_LOCK();
         {
             rb_vm_ractor_blocking_cnt_dec(th->vm, th->ractor, __FILE__, __LINE__);
-            rb_gc_start();
         }
         RB_VM_UNLOCK();
     }
@@ -783,8 +783,6 @@ thread_start_func_2(rb_thread_t *th, VALUE *stack_start)
     // setup VM and machine stack
     vm_stack = alloca(size * sizeof(VALUE));
     VM_ASSERT(vm_stack);
-
-    gvl_acquire(rb_ractor_gvl(th->ractor), th);
 
     rb_ec_initialize_vm_stack(th->ec, vm_stack, size);
     th->ec->machine.stack_start = STACK_DIR_UPPER(vm_stack + size, vm_stack);
