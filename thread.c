@@ -875,11 +875,12 @@ thread_start_func_2(rb_thread_t *th, VALUE *stack_start)
         rb_fiber_close(th->ec->fiber_ptr);
     }
 
+    thread_cleanup_func(th, FALSE);
     VM_ASSERT(th->ec->vm_stack == NULL);
 
     if (th->invoke_type == thread_invoke_type_ractor_proc) {
         // after rb_ractor_living_threads_remove()
-        // GC will happen anytime and this ractor can be collected.
+        // GC will happen anytime and this ractor can be collected (and destroy GVL).
         // So gvl_release() should be before it.
         gvl_release(rb_ractor_gvl(th->ractor));
         rb_ractor_living_threads_remove(th->ractor, th);
@@ -889,7 +890,6 @@ thread_start_func_2(rb_thread_t *th, VALUE *stack_start)
         gvl_release(rb_ractor_gvl(th->ractor));
     }
 
-    thread_cleanup_func(th, FALSE);
     return 0;
 }
 

@@ -143,9 +143,6 @@ ruby_thread_set_native(rb_thread_t *th)
     if (th && th->ec) {
         rb_ractor_set_current_ec(th->ractor, th->ec);
     }
-    else {
-        native_tls_set(ruby_current_ec_key, NULL);
-    }
     return TlsSetValue(ruby_native_thread_key, th);
 }
 
