@@ -646,8 +646,8 @@ Only main Ractor can define constants which refer to the unshareable object.
 
 ## Implementation note
 
-* Each Ractor has own thread, it means each Ractor has at least 1 native thread.
-* Each Ractor has own ID (`rb_ractor_t::id`).
+* Each Ractor has its own thread, it means each Ractor has at least 1 native thread.
+* Each Ractor has its own ID (`rb_ractor_t::id`).
   * On debug mode, all unshareable objects are labeled with current Ractor's id, and it is checked to detect unshareable object leak (access an object from different Ractor) in VM.
 
 ## Examples
