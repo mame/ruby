@@ -246,6 +246,7 @@ Connection example: Ractor.yield(obj) on r1 and r2,
 ```ruby
   r = Ractor.new do
     msg = Ractor.recv # Receive from r's incoming queue
+    msg # send back msg as block return value
   end
   r.send 'ok' # Send 'ok' to r's incoming port -> incoming queue
   r.take      # Receive from r's outgoing port
@@ -657,7 +658,7 @@ Only main Ractor can define constants which refer to the unshareable object.
 RN = 1000
 CR = Ractor.current
 
-last_r = r = Ractor.new do
+r = Ractor.new do
   p Ractor.recv
   CR << :fin
 end
@@ -724,7 +725,7 @@ end
 }
 
 pp (1..N).map{
-  r, (n, b) = Ractor.select(*workers)
+  _r, (n, b) = Ractor.select(*workers)
   [n, b]
 }.sort_by{|(n, b)| n}
 ```
