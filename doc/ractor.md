@@ -773,7 +773,7 @@ p Ractor.recv #=> "r0r1r2r3"
 # ring example again
 
 r = Ractor.current
-rs = (1..10).map{|i|
+(1..10).map{|i|
   r = Ractor.new r, i do |r, i|
     r.send Ractor.recv + "r#{i}"
   end
