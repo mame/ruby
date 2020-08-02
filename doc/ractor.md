@@ -654,7 +654,7 @@ Only main Ractor can define constants which refer to the unshareable object.
 ### Traditional Ring example in Actor-model
 
 ```ruby
-RN = 10000
+RN = 1000
 CR = Ractor.current
 
 last_r = r = Ractor.new do
