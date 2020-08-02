@@ -509,7 +509,7 @@ Implementation: Now shareable objects (`RVALUE`) have `FL_SHAREABLE` flag. This 
 
   shareable_objects = [1, :sym, 'xyzzy'.to_sym, 'frozen'.freeze, 1+2r, 3+4i, /regexp/, C]
 
-  sr = shareable_objects.map{|o|
+  shareable_objects.map{|o|
     r << o
     o2 = r.take
     [o, o.object_id == o2.object_id]
