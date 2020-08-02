@@ -6,6 +6,7 @@
 #include "vm_core.h"
 #include "vm_sync.h"
 #include "ractor.h"
+#include "internal/error.h"
 
 static VALUE rb_cRactor;
 static VALUE rb_eRactorError;
@@ -1200,6 +1201,10 @@ vm_insert_ractor(rb_vm_t *vm, rb_ractor_t *r)
 
             // enable multi-ractor mode
             ruby_multi_ractor = true;
+
+            if (rb_warning_category_enabled_p(RB_WARN_CATEGORY_EXPERIMENTAL)) {
+                rb_warn("Ractor is experimental, and the behavior may change in future versions of Ruby! Also there are many implementation issues.");
+            }
         }
     }
 }
