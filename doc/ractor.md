@@ -516,7 +516,7 @@ Implementation: Now shareable objects (`RVALUE`) have `FL_SHAREABLE` flag. This 
   }
   #=> [[1, true], [:sym, true], [:xyzzy, true], [\"frozen\", true], [(3/1), true], [(3+4i), true], [/regexp/, true], [C, true]]
 
-  ur = unshareable_objects = ['mutable str'.dup, [:array], {hash: true}].map{|o|
+  unshareable_objects = ['mutable str'.dup, [:array], {hash: true}].map{|o|
     r << o
     o2 = r.take
     [o, o.object_id == o2.object_id]
