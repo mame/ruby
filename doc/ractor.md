@@ -419,7 +419,7 @@ Current implementation uses Marshal protocol (similar to dRuby). We can not send
 ```ruby
 obj = Thread.new{}
 begin
-  r = Ractor.new obj do |msg|
+  Ractor.new obj do |msg|
     msg
   end
 rescue TypeError => e
