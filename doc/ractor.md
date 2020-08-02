@@ -411,7 +411,7 @@ r = Ractor.new obj do |msg|
   msg.object_id
 end
   
-obj.object_id == r.recv #=> false
+obj.object_id == r.take #=> false
 ```
 
 Current implementation uses Marshal protocol (similar to dRuby). We can not send Marshal unsupported objects.
