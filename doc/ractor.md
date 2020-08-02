@@ -462,7 +462,7 @@ end
   r = Ractor.new do
     obj = 'hello'
     Ractor.yield obj, move: true
-    obj << 'world'
+    obj << 'world'  # raise Ractor::MovedError
   end
 
   str = r.take
