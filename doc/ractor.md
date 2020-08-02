@@ -663,7 +663,7 @@ last_r = r = Ractor.new do
 end
 
 RN.times{
-  r = Ractor.new r do |next_r|
+  Ractor.new r do |next_r|
     next_r << Ractor.recv
   end
 }
