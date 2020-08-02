@@ -581,7 +581,7 @@ Only main Ractor can access instance variables of shareable objects.
   begin
     r.take
   rescue Ractor::RemoteError => e
-    e.cause.message
+    e.cause.message #=> can not access instance variables of shareable objects from non-main Ractors
   end
 ```
 
