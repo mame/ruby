@@ -800,7 +800,7 @@ rs = (1..10).map{|i|
 r.send "r0"
 p Ractor.recv #=> "r0r10r9r8r7r6r5r4r3r2r1"
 r.send "r0"
-p Ractor.select(*rs, Ractor.current)
+p Ractor.select(*rs, Ractor.current) #=> [:recv, "r0r10r9r8r7r6r5r4r3r2r1"]
 [:recv, "r0r10r9r8r7r6r5r4r3r2r1"]
 r.send "e0"
 p Ractor.select(*rs, Ractor.current)
