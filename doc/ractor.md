@@ -639,7 +639,7 @@ Only main Ractor can define constants which refer to the unshareable object.
   begin
     r.take
   rescue => e
-    e.class
+    e.class #=> NameError
   end
 ```
 
