@@ -765,8 +765,8 @@ thread_start_func_2(rb_thread_t *th, VALUE *stack_start)
     thread_debug("thread start: %p\n", (void *)th);
 
     // setup native thread
-    ruby_thread_set_native(th);
     gvl_acquire(rb_ractor_gvl(th->ractor), th);
+    ruby_thread_set_native(th);
 
     // setup ractor
     if (rb_ractor_status_p(th->ractor, ractor_blocking)) {
