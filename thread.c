@@ -4730,11 +4730,13 @@ rb_thread_atfork_internal(rb_thread_t *th, void (*atfork)(rb_thread_t *, const r
             atfork(i, th);
         }
     }
-    list_head_init(&vm->ractor.set);
+    rb_vm_living_threads_init(vm);
+
+    // threads
     vm->ractor.cnt = 0;
     rb_ractor_living_threads_init(th->ractor);
-
     rb_ractor_living_threads_insert(th->ractor, th);
+
 
     /* may be held by MJIT threads in parent */
     rb_native_mutex_initialize(&vm->waitpid_lock);
