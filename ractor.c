@@ -1011,7 +1011,7 @@ ractor_select(rb_execution_context_t *ec, const VALUE *rs, int alen, VALUE yield
                     }
                 }
 
-                RUBY_DEBUG_LOG("sleep %s", wait_status_str(cr->wait.wakeup_status));
+                RUBY_DEBUG_LOG("sleep %s", wait_status_str(cr->wait.status));
                 ractor_sleep(ec, cr);
                 RUBY_DEBUG_LOG("awaken %s", wakeup_status_str(cr->wait.wakeup_status));
             }
