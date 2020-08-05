@@ -43,7 +43,7 @@ ASSERT_ractor_locking(rb_ractor_t *r)
 static void
 ractor_lock(rb_ractor_t *r, const char *file, int line)
 {
-    RUBY_DEBUG_LOG2(file, line, "r:%u%s", r->id, GET_RACTOR() == r ? " (self)" : "");
+    RUBY_DEBUG_LOG2(file, line, "locking r:%u%s", r->id, GET_RACTOR() == r ? " (self)" : "");
 
     ASSERT_ractor_unlocking(r);
     rb_native_mutex_lock(&r->lock);
@@ -51,19 +51,16 @@ ractor_lock(rb_ractor_t *r, const char *file, int line)
 #if RACTOR_CHECK_MODE > 0
     r->locked_by = GET_RACTOR()->self;
 #endif
+
+    RUBY_DEBUG_LOG2(file, line, "locked  r:%u%s", r->id, GET_RACTOR() == r ? " (self)" : "");
 }
 
 static void
 ractor_lock_self(rb_ractor_t *cr, const char *file, int line)
 {
-    RUBY_DEBUG_LOG2(file, line, "", 0);
-
     VM_ASSERT(cr == GET_RACTOR());
     VM_ASSERT(cr->locked_by != cr->self);
-    rb_native_mutex_lock(&cr->lock);
-#if RACTOR_CHECK_MODE > 0
-    cr->locked_by = cr->self;
-#endif
+    ractor_lock(cr, file, line);
 }
 
 static void
@@ -79,21 +76,17 @@ ractor_unlock(rb_ractor_t *r, const char *file, int line)
 }
 
 static void
-ractor_unlock_self(rb_ractor_t *cr)
+ractor_unlock_self(rb_ractor_t *cr, const char *file, int line)
 {
     VM_ASSERT(cr == GET_RACTOR());
     VM_ASSERT(cr->locked_by == cr->self);
-#if RACTOR_CHECK_MODE > 0
-    cr->locked_by = Qnil;
-#endif
-    rb_native_mutex_unlock(&cr->lock);
-
-    RUBY_DEBUG_LOG("", 0);
+    ractor_unlock(cr, file, line);
 }
 
 #define RACTOR_LOCK(r) ractor_lock(r, __FILE__, __LINE__)
-#define RACTOR_LOCK_SELF(r) ractor_lock_self(r, __FILE__, __LINE__)
 #define RACTOR_UNLOCK(r) ractor_unlock(r, __FILE__, __LINE__)
+#define RACTOR_LOCK_SELF(r) ractor_lock_self(r, __FILE__, __LINE__)
+#define RACTOR_UNLOCK_SELF(r) ractor_unlock_self(r, __FILE__, __LINE__)
 
 static void
 ractor_cond_wait(rb_ractor_t *r)
@@ -529,7 +522,7 @@ ractor_sleep_wo_gvl(void *ptr)
         ractor_cond_wait(cr);
     }
     cr->wait.status = wait_none;
-    ractor_unlock_self(cr);
+    RACTOR_UNLOCK_SELF(cr);
     return NULL;
 }
 
