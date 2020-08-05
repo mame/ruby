@@ -185,7 +185,7 @@ ractor_mark(void *ptr)
 static void
 ractor_queue_free(struct rb_ractor_queue *rq)
 {
-    ruby_xfree(rq->baskets);
+    free(rq->baskets);
 }
 
 static void
@@ -286,7 +286,7 @@ ractor_queue_setup(struct rb_ractor_queue *rq)
 {
     rq->size = 2;
     rq->cnt = 0;
-    rq->baskets = ALLOC_N(struct rb_ractor_basket, rq->size);
+    rq->baskets = malloc(sizeof(struct rb_ractor_basket) * rq->size);
 }
 
 static bool
@@ -328,7 +328,7 @@ ractor_queue_enq(rb_ractor_t *r, struct rb_ractor_queue *rq, struct rb_ractor_ba
 
     if (rq->size <= rq->cnt) {
         rq->size *= 2;
-        REALLOC_N(rq->baskets, struct rb_ractor_basket, rq->size);
+        rq->baskets = realloc(rq->baskets, sizeof(struct rb_ractor_basket) * rq->size);
     }
     rq->baskets[rq->cnt++] = *basket;
     // fprintf(stderr, "%s %p->cnt:%d\n", __func__, rq, rq->cnt);
