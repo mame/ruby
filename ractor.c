@@ -872,10 +872,6 @@ ractor_select(rb_execution_context_t *ec, const VALUE *rs, int alen, VALUE yield
     VALUE ret = Qundef;
     int i;
     enum ractor_wait_status wait_status = 0;
-    struct rb_ractor_basket yielding_basket = {
-        .type = basket_type_none,
-    };
-
     bool yield_p = (yielded_value != Qundef) ? true : false;
 
     struct ractor_select_action {
@@ -911,11 +907,14 @@ ractor_select(rb_execution_context_t *ec, const VALUE *rs, int alen, VALUE yield
         }
     }
     rs = NULL;
+
     if (yield_p) {
         actions[i].type = ractor_select_action_yield;
         actions[i].v = Qundef;
         wait_status |= wait_yielding;
         alen++;
+
+        ractor_basket_setup(ec, &cr->wait.yielded_basket, yielded_value, move, false);
     }
 
     // TODO: shuffle actions
@@ -944,28 +943,13 @@ ractor_select(rb_execution_context_t *ec, const VALUE *rs, int alen, VALUE yield
                 break;
               case ractor_select_action_yield:
                 {
-                    bool yield_result;
-
-                    if (yielding_basket.type == basket_type_none) {
-                        ractor_basket_setup(ec, &yielding_basket, yielded_value, move, false);
-                    }
-                    yield_result = ractor_try_yield(ec, cr, &yielding_basket);
-
-                    if (yield_result) {
+                    if (ractor_try_yield(ec, cr, &cr->wait.yielded_basket)) {
                         *ret_r = ID2SYM(rb_intern("yield"));
                         ret = Qnil;
                         goto cleanup;
                     }
                 }
                 break;
-            }
-        }
-
-        // prepare yielding
-        if (yield_p) {
-            VM_ASSERT(yielding_basket.type != basket_type_none);
-            if (cr->wait.yielded_basket.type == basket_type_none) {
-                cr->wait.yielded_basket = yielding_basket;
             }
         }
 
