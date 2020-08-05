@@ -762,7 +762,7 @@ yes-btest-ruby: prog PHONY
 	$(Q)$(exec) $(RUNRUBY) "$(srcdir)/bootstraptest/runner.rb" --ruby="$(PROGRAM) -I$(srcdir)/lib $(RUN_OPTS)" -q $(OPTS) $(TESTOPTS) $(BTESTS)
 
 rtest: fake miniruby$(EXEEXT) PHONY
-	$(Q)$(exec) $(BOOTSTRAPRUBY) "$(srcdir)/bootstraptest/runner.rb" --ruby="$(BTESTRUBY) $(RUN_OPTS)" --sets=ractor
+	$(Q)$(exec) $(BOOTSTRAPRUBY) "$(srcdir)/bootstraptest/runner.rb" --ruby="$(BTESTRUBY) $(RUN_OPTS)" --sets=ractor -v
 
 test-basic: $(TEST_RUNNABLE)-test-basic
 no-test-basic: PHONY
