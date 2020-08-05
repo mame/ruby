@@ -1365,6 +1365,14 @@ rb_ractor_teardown(rb_execution_context_t *ec)
     rb_ractor_t *cr = rb_ec_ractor_ptr(ec);
     ractor_close_incoming(ec, cr);
     ractor_close_outgoing(ec, cr);
+
+    // sync with rb_ractor_terminate_interrupt_main_thread()
+    RB_VM_LOCK_ENTER();
+    {
+        VM_ASSERT(cr->threads.main != NULL);
+        cr->threads.main = NULL;
+    }
+    RB_VM_LOCK_LEAVE();
 }
 
 void
@@ -1603,7 +1611,6 @@ rb_ractor_terminate_interrupt_main_thread(rb_ractor_t *r)
     ASSERT_vm_locking();
 
     rb_thread_t *main_th = r->threads.main;
-
     if (main_th) {
         if (main_th->status != THREAD_KILLED) {
             RUBY_VM_SET_TERMINATE_INTERRUPT(main_th->ec);
