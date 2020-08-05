@@ -745,7 +745,7 @@ ractor_send_basket(rb_execution_context_t *ec, rb_ractor_t *r, struct rb_ractor_
         else {
             ractor_queue_enq(r, rq, b);
             if (ractor_wakeup(r, wait_recving, wakeup_by_send)) {
-                VM_ASSERT(rq->cnt == 1);
+                RUBY_DEBUG_LOG("wakeup", 0);
             }
         }
     }
@@ -920,7 +920,8 @@ ractor_select(rb_execution_context_t *ec, const VALUE *rs, int alen, VALUE yield
     // TODO: shuffle actions
 
     while (1) {
-        // try actions
+        RUBY_DEBUG_LOG("try actions (%s)", wait_status_str(wait_status));
+
         for (i=0; i<alen; i++) {
             VALUE v, rv;
             switch (actions[i].type) {
@@ -953,7 +954,8 @@ ractor_select(rb_execution_context_t *ec, const VALUE *rs, int alen, VALUE yield
             }
         }
 
-        // setup waiting status
+        RUBY_DEBUG_LOG("wait actions (%s)", wait_status_str(wait_status));
+
         RACTOR_LOCK(cr);
         {
             VM_ASSERT(cr->wait.status == wait_none);
@@ -980,11 +982,41 @@ ractor_select(rb_execution_context_t *ec, const VALUE *rs, int alen, VALUE yield
         RACTOR_LOCK(cr);
         {
             if (cr->wait.wakeup_status == wakeup_none) {
-                VM_ASSERT(cr->wait.status != wait_none);
+                for (i=0; i<alen; i++) {
+                    rb_ractor_t *r;
+
+                    switch (actions[i].type) {
+                      case ractor_select_action_take:
+                        r = RACTOR_PTR(actions[i].v);
+                        if (ractor_sleeping_by(r, wait_yielding)) {
+                            RUBY_DEBUG_LOG("wakeup_none, but r:%u is waiting for yielding", r->id);
+                            cr->wait.wakeup_status = wakeup_by_retry;
+                            goto skip_sleep;
+                        }
+                        break;
+                      case ractor_select_action_recv:
+                        if (cr->incoming_queue.cnt > 0) {
+                            RUBY_DEBUG_LOG("wakeup_none, but incoming_queue has %u messages", cr->incoming_queue.cnt);
+                            cr->wait.wakeup_status = wakeup_by_retry;
+                            goto skip_sleep;
+                        }
+                        break;
+                      case ractor_select_action_yield:
+                        if (cr->taking_ractors.cnt > 0) {
+                            RUBY_DEBUG_LOG("wakeup_none, but %u taking_ractors are waiting", cr->taking_ractors.cnt);
+                            cr->wait.wakeup_status = wakeup_by_retry;
+                            goto skip_sleep;
+                        }
+                        break;
+                    }
+                }
+
+                RUBY_DEBUG_LOG("sleep %s", wait_status_str(cr->wait.wakeup_status));
                 ractor_sleep(ec, cr);
                 RUBY_DEBUG_LOG("awaken %s", wakeup_status_str(cr->wait.wakeup_status));
             }
             else {
+              skip_sleep:
                 RUBY_DEBUG_LOG("no need to sleep %s->%s",
                                wait_status_str(cr->wait.status),
                                wakeup_status_str(cr->wait.wakeup_status));
@@ -1046,6 +1078,8 @@ ractor_select(rb_execution_context_t *ec, const VALUE *rs, int alen, VALUE yield
     }
 
   cleanup:
+    RUBY_DEBUG_LOG("cleanup actions (%s)", wait_status_str(wait_status));
+
     if (cr->wait.yielded_basket.type != basket_type_none) {
         ractor_basket_clear(&cr->wait.yielded_basket);
     }
