@@ -1756,7 +1756,12 @@ rb_thread_io_blocking_region(rb_blocking_function_t *func, void *data1, int fd)
 
     wfd.fd = fd;
     wfd.th = rb_ec_thread_ptr(ec);
-    list_add(&rb_ec_vm_ptr(ec)->waiting_fds, &wfd.wfd_node);
+
+    RB_VM_LOCK_ENTER();
+    {
+        list_add(&rb_ec_vm_ptr(ec)->waiting_fds, &wfd.wfd_node);
+    }
+    RB_VM_LOCK_LEAVE();
 
     EC_PUSH_TAG(ec);
     if ((state = EC_EXEC_TAG()) == TAG_NONE) {
@@ -1771,7 +1776,11 @@ rb_thread_io_blocking_region(rb_blocking_function_t *func, void *data1, int fd)
      * must be deleted before jump
      * this will delete either from waiting_fds or on-stack LIST_HEAD(busy)
      */
-    list_del(&wfd.wfd_node);
+    RB_VM_LOCK_ENTER();
+    {
+        list_del(&wfd.wfd_node);
+    }
+    RB_VM_LOCK_LEAVE();
 
     if (state) {
 	EC_JUMP_TAG(ec, state);
@@ -2533,19 +2542,24 @@ rb_notify_fd_close(int fd, struct list_head *busy)
     rb_vm_t *vm = GET_THREAD()->vm;
     struct waiting_fd *wfd = 0, *next;
 
-    list_for_each_safe(&vm->waiting_fds, wfd, next, wfd_node) {
-	if (wfd->fd == fd) {
-	    rb_thread_t *th = wfd->th;
-	    VALUE err;
+    RB_VM_LOCK_ENTER();
+    {
+        list_for_each_safe(&vm->waiting_fds, wfd, next, wfd_node) {
+            if (wfd->fd == fd) {
+                rb_thread_t *th = wfd->th;
+                VALUE err;
 
-	    list_del(&wfd->wfd_node);
-	    list_add(busy, &wfd->wfd_node);
+                list_del(&wfd->wfd_node);
+                list_add(busy, &wfd->wfd_node);
 
-	    err = th->vm->special_exceptions[ruby_error_stream_closed];
-	    rb_threadptr_pending_interrupt_enque(th, err);
-	    rb_threadptr_interrupt(th);
-	}
+                err = th->vm->special_exceptions[ruby_error_stream_closed];
+                rb_threadptr_pending_interrupt_enque(th, err);
+                rb_threadptr_interrupt(th);
+            }
+        }
     }
+    RB_VM_LOCK_LEAVE();
+
     return !list_empty(busy);
 }
 
@@ -4371,7 +4385,13 @@ rb_wait_for_single_fd(int fd, int events, struct timeval *timeout)
 
     wfd.th = GET_THREAD();
     wfd.fd = fd;
-    list_add(&wfd.th->vm->waiting_fds, &wfd.wfd_node);
+
+    RB_VM_LOCK_ENTER();
+    {
+        list_add(&wfd.th->vm->waiting_fds, &wfd.wfd_node);
+    }
+    RB_VM_LOCK_LEAVE();
+
     EC_PUSH_TAG(wfd.th->ec);
     if ((state = EC_EXEC_TAG()) == TAG_NONE) {
         RUBY_VM_CHECK_INTS_BLOCKING(wfd.th->ec);
@@ -4524,7 +4544,12 @@ rb_wait_for_single_fd(int fd, int events, struct timeval *timeout)
     args.wfd.fd = fd;
     args.wfd.th = GET_THREAD();
 
-    list_add(&args.wfd.th->vm->waiting_fds, &args.wfd.wfd_node);
+    RB_VM_LOCK_ENTER();
+    {
+        list_add(&args.wfd.th->vm->waiting_fds, &args.wfd.wfd_node);
+    }
+    RB_VM_LOCK_LEAVE();
+
     r = (int)rb_ensure(select_single, ptr, select_single_cleanup, ptr);
     if (r == -1)
 	errno = args.as.error;
