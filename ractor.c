@@ -172,6 +172,9 @@ ractor_mark(void *ptr)
     rb_gc_mark(r->wait.yielded_basket.sender);
     rb_gc_mark(r->loc);
     rb_gc_mark(r->name);
+    rb_gc_mark(r->stdin);
+    rb_gc_mark(r->stdout);
+    rb_gc_mark(r->stderr);
 
     if (r->threads.cnt > 0) {
         rb_thread_t *th;
@@ -1306,7 +1309,6 @@ rb_ractor_main_setup(rb_vm_t *vm, rb_ractor_t *r, rb_thread_t *th)
     FL_SET_RAW(r->self, RUBY_FL_SHAREABLE);
     ractor_init(r, Qnil, Qnil);
     r->threads.main = th;
-
     rb_ractor_living_threads_insert(r, th);
 }
 
@@ -1320,6 +1322,10 @@ ractor_create(rb_execution_context_t *ec, VALUE self, VALUE loc, VALUE name, VAL
     // can block here
     r->id = ractor_next_id();
     RUBY_DEBUG_LOG("r:%u", r->id);
+
+    r->stdin = rb_obj_dup(rb_stdin);
+    r->stdout = rb_obj_dup(rb_stdout);
+    r->stderr = rb_obj_dup(rb_stderr);
 
     rb_thread_create_ractor(r, args, block);
 
@@ -1753,5 +1759,77 @@ rb_ractor_dump(void)
         if (r != vm->ractor.main_ractor) {
             fprintf(stderr, "r:%u (%s)\n", r->id, ractor_status_str(r->status_));
         }
+    }
+}
+
+VALUE
+rb_ractor_stdin(void)
+{
+    if (rb_ractor_main_p()) {
+        return rb_stdin;
+    }
+    else {
+        rb_ractor_t *cr = GET_RACTOR();
+        return cr->stdin;
+    }
+}
+
+VALUE
+rb_ractor_stdout(void)
+{
+    if (rb_ractor_main_p()) {
+        return rb_stdout;
+    }
+    else {
+        rb_ractor_t *cr = GET_RACTOR();
+        return cr->stdout;
+    }
+}
+
+VALUE
+rb_ractor_stderr(void)
+{
+    if (rb_ractor_main_p()) {
+        return rb_stderr;
+    }
+    else {
+        rb_ractor_t *cr = GET_RACTOR();
+        return cr->stderr;
+    }
+}
+
+void
+rb_ractor_stdin_set(VALUE in)
+{
+    if (rb_ractor_main_p()) {
+        rb_stdin = in;
+    }
+    else {
+        rb_ractor_t *cr = GET_RACTOR();
+        RB_OBJ_WRITE(cr->self, &cr->stdin, in);
+    }
+}
+
+void
+rb_ractor_stdout_set(VALUE out)
+{
+    if (rb_ractor_main_p()) {
+        rb_stdout = out;
+    }
+    else {
+        rb_ractor_t *cr = GET_RACTOR();
+        RB_OBJ_WRITE(cr->self, &cr->stdout, out);
+    }
+}
+
+void
+rb_ractor_stderr_set(VALUE err)
+{
+    if (rb_ractor_main_p()) {
+        rb_stderr = err;
+    }
+    else {
+        rb_ractor_t *cr = GET_RACTOR();
+        RB_OBJ_WRITE(cr->self, &cr->stderr, err);
     }
 }

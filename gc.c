@@ -7177,46 +7177,49 @@ void
 rb_gc_force_recycle(VALUE obj)
 {
     rb_objspace_t *objspace = &rb_objspace;
+    RB_VM_LOCK_ENTER();
+    {
+        int is_old = RVALUE_OLD_P(obj);
 
-    int is_old = RVALUE_OLD_P(obj);
+        gc_report(2, objspace, "rb_gc_force_recycle: %s\n", obj_info(obj));
 
-    gc_report(2, objspace, "rb_gc_force_recycle: %s\n", obj_info(obj));
-
-    if (is_old) {
-	if (RVALUE_MARKED(obj)) {
-	    objspace->rgengc.old_objects--;
-	}
-    }
-    CLEAR_IN_BITMAP(GET_HEAP_UNCOLLECTIBLE_BITS(obj), obj);
-    CLEAR_IN_BITMAP(GET_HEAP_WB_UNPROTECTED_BITS(obj), obj);
+        if (is_old) {
+            if (RVALUE_MARKED(obj)) {
+                objspace->rgengc.old_objects--;
+            }
+        }
+        CLEAR_IN_BITMAP(GET_HEAP_UNCOLLECTIBLE_BITS(obj), obj);
+        CLEAR_IN_BITMAP(GET_HEAP_WB_UNPROTECTED_BITS(obj), obj);
 
 #if GC_ENABLE_INCREMENTAL_MARK
-    if (is_incremental_marking(objspace)) {
-	if (MARKED_IN_BITMAP(GET_HEAP_MARKING_BITS(obj), obj)) {
-	    invalidate_mark_stack(&objspace->mark_stack, obj);
-	    CLEAR_IN_BITMAP(GET_HEAP_MARKING_BITS(obj), obj);
-	}
-	CLEAR_IN_BITMAP(GET_HEAP_MARK_BITS(obj), obj);
-    }
-    else {
+        if (is_incremental_marking(objspace)) {
+            if (MARKED_IN_BITMAP(GET_HEAP_MARKING_BITS(obj), obj)) {
+                invalidate_mark_stack(&objspace->mark_stack, obj);
+                CLEAR_IN_BITMAP(GET_HEAP_MARKING_BITS(obj), obj);
+            }
+            CLEAR_IN_BITMAP(GET_HEAP_MARK_BITS(obj), obj);
+        }
+        else {
 #endif
-	if (is_old || !GET_HEAP_PAGE(obj)->flags.before_sweep) {
-	    CLEAR_IN_BITMAP(GET_HEAP_MARK_BITS(obj), obj);
-	}
-	CLEAR_IN_BITMAP(GET_HEAP_MARKING_BITS(obj), obj);
+            if (is_old || !GET_HEAP_PAGE(obj)->flags.before_sweep) {
+                CLEAR_IN_BITMAP(GET_HEAP_MARK_BITS(obj), obj);
+            }
+            CLEAR_IN_BITMAP(GET_HEAP_MARKING_BITS(obj), obj);
 #if GC_ENABLE_INCREMENTAL_MARK
-    }
+        }
 #endif
 
-    objspace->profile.total_freed_objects++;
+        objspace->profile.total_freed_objects++;
 
-    heap_page_add_freeobj(objspace, GET_HEAP_PAGE(obj), obj);
+        heap_page_add_freeobj(objspace, GET_HEAP_PAGE(obj), obj);
 
-    /* Disable counting swept_slots because there are no meaning.
-     * if (!MARKED_IN_BITMAP(GET_HEAP_MARK_BITS(p), p)) {
-     *   objspace->heap.swept_slots++;
-     * }
-     */
+        /* Disable counting swept_slots because there are no meaning.
+         * if (!MARKED_IN_BITMAP(GET_HEAP_MARK_BITS(p), p)) {
+         *   objspace->heap.swept_slots++;
+         * }
+         */
+    }
+    RB_VM_LOCK_LEAVE();
 }
 
 #ifndef MARK_OBJECT_ARY_BUCKET_SIZE

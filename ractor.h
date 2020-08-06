@@ -2,6 +2,7 @@
 #include "vm_core.h"
 #include "id_table.h"
 #include "vm_debug.h"
+#include "ractor_pub.h"
 
 #ifndef RACTOR_CHECK_MODE
 #define RACTOR_CHECK_MODE (0 || VM_CHECK_MODE || RUBY_DEBUG)
@@ -117,11 +118,15 @@ struct rb_ractor_struct {
     } status_;
 
     struct list_node vmlr_node;
+
+
+    VALUE stdin;
+    VALUE stdout;
+    VALUE stderr;
 }; // rb_ractor_t is defined in vm_core.h
 
 rb_ractor_t *rb_ractor_main_alloc(void);
 void rb_ractor_main_setup(rb_vm_t *vm, rb_ractor_t *main_ractor, rb_thread_t *main_thread);
-int rb_ractor_main_p(void);
 VALUE rb_ractor_self(const rb_ractor_t *g);
 void rb_ractor_atexit(rb_execution_context_t *ec, VALUE result);
 void rb_ractor_atexit_exception(rb_execution_context_t *ec);
@@ -213,25 +218,6 @@ rb_ractor_set_current_ec(rb_ractor_t *cr, rb_execution_context_t *ec)
 
 void rb_vm_ractor_blocking_cnt_inc(rb_vm_t *vm, rb_ractor_t *cr, const char *file, int line);
 void rb_vm_ractor_blocking_cnt_dec(rb_vm_t *vm, rb_ractor_t *cr, const char *file, int line);
-
-// TODO: deep frozen
-#define RB_OBJ_SHAREABLE_P(obj) FL_TEST_RAW((obj), RUBY_FL_SHAREABLE)
-
-bool rb_ractor_shareable_p_continue(VALUE obj);
-
-static inline bool
-rb_ractor_shareable_p(VALUE obj)
-{
-    if (SPECIAL_CONST_P(obj)) {
-        return true;
-    }
-    else if (RB_OBJ_SHAREABLE_P(obj)) {
-        return true;
-    }
-    else {
-        return rb_ractor_shareable_p_continue(obj);
-    }
-}
 
 uint32_t rb_ractor_id(const rb_ractor_t *r);
 
