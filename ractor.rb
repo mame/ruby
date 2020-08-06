@@ -71,10 +71,12 @@ class Ractor
   #
   def self.select *ractors, yield_value: yield_unspecified = true, move: false
     __builtin_cstmt! %q{
+      VALUE rs_ary = ractors;
       VALUE rv;
-      VALUE v = ractor_select(ec, RARRAY_CONST_PTR(ractors), RARRAY_LENINT(ractors),
+      VALUE v = ractor_select(ec, RARRAY_CONST_PTR(rs_ary), RARRAY_LENINT(ractors),
                               yield_unspecified == Qtrue ? Qundef : yield_value,
                               (bool)RTEST(move) ? true : false, &rv);
+      RB_GC_GUARD(rs_ary);
       return rb_ary_new_from_args(2, rv, v);
     }
   end
