@@ -172,9 +172,9 @@ ractor_mark(void *ptr)
     rb_gc_mark(r->wait.yielded_basket.sender);
     rb_gc_mark(r->loc);
     rb_gc_mark(r->name);
-    rb_gc_mark(r->stdin);
-    rb_gc_mark(r->stdout);
-    rb_gc_mark(r->stderr);
+    rb_gc_mark(r->r_stdin);
+    rb_gc_mark(r->r_stdout);
+    rb_gc_mark(r->r_stderr);
 
     if (r->threads.cnt > 0) {
         rb_thread_t *th;
@@ -1323,9 +1323,9 @@ ractor_create(rb_execution_context_t *ec, VALUE self, VALUE loc, VALUE name, VAL
     r->id = ractor_next_id();
     RUBY_DEBUG_LOG("r:%u", r->id);
 
-    r->stdin = rb_obj_dup(rb_stdin);
-    r->stdout = rb_obj_dup(rb_stdout);
-    r->stderr = rb_obj_dup(rb_stderr);
+    r->r_stdin = rb_obj_dup(rb_stdin);
+    r->r_stdout = rb_obj_dup(rb_stdout);
+    r->r_stderr = rb_obj_dup(rb_stderr);
 
     rb_thread_create_ractor(r, args, block);
 
@@ -1770,7 +1770,7 @@ rb_ractor_stdin(void)
     }
     else {
         rb_ractor_t *cr = GET_RACTOR();
-        return cr->stdin;
+        return cr->r_stdin;
     }
 }
 
@@ -1782,7 +1782,7 @@ rb_ractor_stdout(void)
     }
     else {
         rb_ractor_t *cr = GET_RACTOR();
-        return cr->stdout;
+        return cr->r_stdout;
     }
 }
 
@@ -1794,7 +1794,7 @@ rb_ractor_stderr(void)
     }
     else {
         rb_ractor_t *cr = GET_RACTOR();
-        return cr->stderr;
+        return cr->r_stderr;
     }
 }
 
@@ -1806,7 +1806,7 @@ rb_ractor_stdin_set(VALUE in)
     }
     else {
         rb_ractor_t *cr = GET_RACTOR();
-        RB_OBJ_WRITE(cr->self, &cr->stdin, in);
+        RB_OBJ_WRITE(cr->self, &cr->r_stdin, in);
     }
 }
 
@@ -1818,7 +1818,7 @@ rb_ractor_stdout_set(VALUE out)
     }
     else {
         rb_ractor_t *cr = GET_RACTOR();
-        RB_OBJ_WRITE(cr->self, &cr->stdout, out);
+        RB_OBJ_WRITE(cr->self, &cr->r_stdout, out);
     }
 }
 
@@ -1830,6 +1830,6 @@ rb_ractor_stderr_set(VALUE err)
     }
     else {
         rb_ractor_t *cr = GET_RACTOR();
-        RB_OBJ_WRITE(cr->self, &cr->stderr, err);
+        RB_OBJ_WRITE(cr->self, &cr->r_stderr, err);
     }
 }

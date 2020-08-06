@@ -120,9 +120,9 @@ struct rb_ractor_struct {
     struct list_node vmlr_node;
 
 
-    VALUE stdin;
-    VALUE stdout;
-    VALUE stderr;
+    VALUE r_stdin;
+    VALUE r_stdout;
+    VALUE r_stderr;
 }; // rb_ractor_t is defined in vm_core.h
 
 rb_ractor_t *rb_ractor_main_alloc(void);
