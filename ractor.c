@@ -1716,6 +1716,18 @@ Init_Ractor(void)
     rb_obj_freeze(rb_cRactorMovedObject);
 }
 
+static int
+rb_ractor_shareable_p_hash_i(VALUE key, VALUE value, VALUE arg)
+{
+    // TODO: should we need to avoid recursion to prevent stack overflow?
+    if (!rb_ractor_shareable_p(key) || !rb_ractor_shareable_p(value)) {
+        bool *shareable = (bool*)arg;
+        *shareable = false;
+        return ST_STOP;
+    }
+    return ST_CONTINUE;
+}
+
 MJIT_FUNC_EXPORTED bool
 rb_ractor_shareable_p_continue(VALUE obj)
 {
@@ -1740,6 +1752,26 @@ rb_ractor_shareable_p_continue(VALUE obj)
             goto shareable;
         }
         return false;
+
+      // TODO: need to cache the result or another cleverer way to avoid redundant check
+      case T_ARRAY:
+        if (!RB_OBJ_FROZEN_RAW(obj)) return false;
+        {
+            int i = 0;
+            // TODO: should we need to avoid recursion to prevent stack overflow?
+            for (; i < RARRAY_LEN(obj); i++) {
+                if (!rb_ractor_shareable_p(rb_ary_entry(obj, i))) return false;
+            }
+        }
+        return true;
+
+      case T_HASH:
+        if (!RB_OBJ_FROZEN_RAW(obj)) return false;
+        {
+            bool shareable = true;
+            rb_hash_foreach(obj, rb_ractor_shareable_p_hash_i, (VALUE)&shareable);
+            return shareable;
+        }
 
       default:
         return false;
