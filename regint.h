@@ -148,7 +148,8 @@
 
 #ifdef RUBY
 
-# define CHECK_INTERRUPT_IN_MATCH_AT rb_thread_check_ints()
+# define MATCH_START rb_thread_reg_match_start()
+# define CHECK_INTERRUPT_IN_MATCH_AT rb_thread_reg_check_ints()
 # define onig_st_init_table                  st_init_table
 # define onig_st_init_table_with_size        st_init_table_with_size
 # define onig_st_init_numtable               st_init_numtable

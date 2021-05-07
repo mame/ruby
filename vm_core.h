@@ -1027,6 +1027,13 @@ typedef struct rb_thread_struct {
 
     struct rb_ext_config ext_config;
 
+    /* rb_hrtime_t from hrtime.h */
+#ifdef MY_RUBY_BUILD_MAY_TIME_TRAVEL
+    int128_t reg_match_end_time;
+#else
+    uint64_t reg_match_end_time;
+#endif
+
 #ifdef USE_SIGALTSTACK
     void *altstack;
 #endif

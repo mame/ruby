@@ -1398,6 +1398,12 @@ double2hrtime(rb_hrtime_t *hrt, double d)
     return hrt;
 }
 
+static double
+hrtime2double(rb_hrtime_t hrt)
+{
+    return (double)hrt / (double)RB_HRTIME_PER_SEC;
+}
+
 static void
 getclockofday(struct timespec *ts)
 {
@@ -1542,6 +1548,53 @@ rb_thread_wait_for(struct timeval time)
     rb_thread_t *th = GET_THREAD();
 
     sleep_hrtime(th, rb_timeval2hrtime(&time), SLEEP_SPURIOUS_CHECK);
+}
+
+static rb_hrtime_t reg_match_time_limit = 0;
+
+void
+rb_thread_reg_match_time_limit_set(double limit)
+{
+    if (rb_ractor_main_p()) {
+        if (limit < 0) limit = 0;
+        double2hrtime(&reg_match_time_limit, limit);
+    }
+    else {
+        rb_raise(rb_eRactorIsolationError, "can not access Regexp.timeout from non-main Ractors");
+    }
+}
+
+double
+rb_thread_reg_match_time_limit_get()
+{
+    return hrtime2double(reg_match_time_limit);
+}
+
+void
+rb_thread_reg_match_start(void)
+{
+    rb_thread_t *th = GET_THREAD();
+    if (reg_match_time_limit) {
+        th->reg_match_end_time = rb_hrtime_add(reg_match_time_limit, rb_hrtime_now());
+    }
+    else {
+        th->reg_match_end_time = 0;
+    }
+}
+
+void
+rb_thread_reg_check_ints(void)
+{
+    rb_thread_t *th = GET_THREAD();
+
+    if (th->reg_match_end_time && th->reg_match_end_time < rb_hrtime_now()) {
+        VALUE argv[2];
+        argv[0] = rb_eRuntimeError;
+        argv[1] = rb_str_new2("regexp match timeout");
+        rb_threadptr_raise(th, 2, argv);
+    }
+
+    rb_thread_check_ints();
 }
 
 /*

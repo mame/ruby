@@ -60,6 +60,8 @@ typedef void rb_unblock_function_t(void *);
 typedef VALUE rb_blocking_function_t(void *);
 void rb_thread_check_ints(void);
 int rb_thread_interrupted(VALUE thval);
+void rb_thread_reg_match_start(void);
+void rb_thread_reg_check_ints(void);
 
 #define RUBY_UBF_IO RBIMPL_CAST((rb_unblock_function_t *)-1)
 #define RUBY_UBF_PROCESS RBIMPL_CAST((rb_unblock_function_t *)-1)

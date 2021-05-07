@@ -36,6 +36,8 @@ int rb_thread_to_be_killed(VALUE thread);
 void rb_mutex_allow_trap(VALUE self, int val);
 VALUE rb_uninterruptible(VALUE (*b_proc)(VALUE), VALUE data);
 VALUE rb_mutex_owned_p(VALUE self);
+void rb_thread_reg_match_time_limit_set(double);
+double rb_thread_reg_match_time_limit_get();
 
 int rb_thread_wait_for_single_fd(int fd, int events, struct timeval * timeout);
 

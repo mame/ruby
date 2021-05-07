@@ -1432,6 +1432,10 @@ match_at(regex_t* reg, const UChar* str, const UChar* end,
 {
   static const UChar FinishCode[] = { OP_FINISH };
 
+#ifdef MATCH_START
+  MATCH_START;
+#endif
+
   int i, num_mem, pop_level;
   ptrdiff_t n, best_len;
   LengthType tlen, tlen2;

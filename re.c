@@ -20,6 +20,7 @@
 #include "internal/re.h"
 #include "internal/string.h"
 #include "internal/variable.h"
+#include "internal/thread.h"
 #include "regint.h"
 #include "ruby/encoding.h"
 #include "ruby/re.h"
@@ -4005,6 +4006,26 @@ re_warn(const char *s)
     rb_warn("%s", s);
 }
 
+static VALUE
+rb_reg_s_timeout_get(VALUE dummy)
+{
+    double d = rb_thread_reg_match_time_limit_get();
+    if (d) return DBL2NUM(d);
+    return Qnil;
+}
+
+static VALUE
+rb_reg_s_timeout_set(VALUE dummy, VALUE limit)
+{
+    if (NIL_P(limit)) {
+        rb_thread_reg_match_time_limit_set(0);
+    }
+    else {
+        rb_thread_reg_match_time_limit_set(NUM2DBL(limit));
+    }
+    return limit;
+}
+
 /*
  *  Document-class: RegexpError
  *
@@ -4119,4 +4140,7 @@ Init_Regexp(void)
     rb_define_method(rb_cMatch, "hash", match_hash, 0);
     rb_define_method(rb_cMatch, "eql?", match_equal, 1);
     rb_define_method(rb_cMatch, "==", match_equal, 1);
+
+    rb_define_singleton_method(rb_cRegexp, "timeout", rb_reg_s_timeout_get, 0);
+    rb_define_singleton_method(rb_cRegexp, "timeout=", rb_reg_s_timeout_set, 1);
 }
