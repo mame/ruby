@@ -29,8 +29,8 @@ module RubyVM::AbstractSyntaxTree
   #
   #    RubyVM::AbstractSyntaxTree.parse("x = 1 + 2")
   #    # => #<RubyVM::AbstractSyntaxTree::Node:SCOPE@1:0-1:9>
-  def self.parse string
-    Primitive.ast_s_parse string
+  def self.parse string, save_script_lines: false
+    Primitive.ast_s_parse string, save_script_lines
   end
 
   #  call-seq:
@@ -44,8 +44,8 @@ module RubyVM::AbstractSyntaxTree
   #
   #     RubyVM::AbstractSyntaxTree.parse_file("my-app/app.rb")
   #     # => #<RubyVM::AbstractSyntaxTree::Node:SCOPE@1:0-31:3>
-  def self.parse_file pathname
-    Primitive.ast_s_parse_file pathname
+  def self.parse_file pathname, save_script_lines: false
+    Primitive.ast_s_parse_file pathname, save_script_lines
   end
 
   #  call-seq:
@@ -63,8 +63,8 @@ module RubyVM::AbstractSyntaxTree
   #
   #     RubyVM::AbstractSyntaxTree.of(method(:hello))
   #     # => #<RubyVM::AbstractSyntaxTree::Node:SCOPE@1:0-3:3>
-  def self.of body
-    Primitive.ast_s_of body
+  def self.of body, save_script_lines: false
+    Primitive.ast_s_of body, save_script_lines
   end
 
   # RubyVM::AbstractSyntaxTree::Node instances are created by parse methods in
@@ -138,6 +138,26 @@ module RubyVM::AbstractSyntaxTree
     #  Returns debugging information about this node as a string.
     def inspect
       Primitive.ast_node_inspect
+    end
+
+    #  call-seq:
+    #     node.source -> string
+    #
+    #  Returns the code fragment that corresponds to this AST.
+    def source
+      lines = script_lines[first_lineno - 1 .. last_lineno - 1]
+      lines[-1] = lines[-1][0...last_column]
+      lines[0] = lines[0][first_column..]
+      lines.join("\n")
+    end
+
+    #  call-seq:
+    #     node.script_lines -> array
+    #
+    #  Returns the original source code as an array of lines.
+    #  Note that it returns the whole source code, not code fragment.
+    def script_lines
+      Primitive.ast_node_script_lines
     end
   end
 end

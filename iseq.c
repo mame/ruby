@@ -264,6 +264,7 @@ rb_iseq_update_references(rb_iseq_t *iseq)
         body->location.label = rb_gc_location(body->location.label);
         body->location.base_label = rb_gc_location(body->location.base_label);
         body->location.pathobj = rb_gc_location(body->location.pathobj);
+        body->script_lines = rb_gc_location(body->script_lines);
         if (body->local_iseq) {
             body->local_iseq = (struct rb_iseq_struct *)rb_gc_location((VALUE)body->local_iseq);
         }
@@ -348,6 +349,7 @@ rb_iseq_mark(const rb_iseq_t *iseq)
         rb_gc_mark_movable(body->location.base_label);
         rb_gc_mark_movable(body->location.pathobj);
         RUBY_MARK_MOVABLE_UNLESS_NULL((VALUE)body->parent_iseq);
+        RUBY_MARK_MOVABLE_UNLESS_NULL(body->script_lines);
 
         if (body->call_data) {
             struct rb_call_data *cds = (struct rb_call_data *)body->call_data;
@@ -590,7 +592,7 @@ new_arena(void)
 
 static VALUE
 prepare_iseq_build(rb_iseq_t *iseq,
-                   VALUE name, VALUE path, VALUE realpath, VALUE first_lineno, const rb_code_location_t *code_location, const int node_id,
+                   VALUE name, VALUE path, VALUE realpath, VALUE first_lineno, VALUE script_lines, const rb_code_location_t *code_location, const int node_id,
 		   const rb_iseq_t *parent, int isolated_depth, enum iseq_type type, const rb_compile_option_t *option)
 {
     VALUE coverage = Qfalse;
@@ -623,6 +625,7 @@ prepare_iseq_build(rb_iseq_t *iseq,
     ISEQ_COMPILE_DATA(iseq)->ivar_cache_table = NULL;
     ISEQ_COMPILE_DATA(iseq)->builtin_function_table = GET_VM()->builtin_function_table;
 
+    RB_OBJ_WRITE(iseq, &body->script_lines, script_lines);
 
     if (option->coverage_enabled) {
 	VALUE coverages = rb_get_coverages();
@@ -875,8 +878,9 @@ rb_iseq_new_with_opt(const rb_ast_body_t *ast, VALUE name, VALUE path, VALUE rea
         new_opt = COMPILE_OPTION_DEFAULT;
     }
     if (ast && ast->compile_option) rb_iseq_make_compile_option(&new_opt, ast->compile_option);
+    VALUE script_lines = ast ? ast->script_lines : Qfalse;
 
-    prepare_iseq_build(iseq, name, path, realpath, first_lineno, node ? &node->nd_loc : NULL, node ? nd_node_id(node) : -1, parent, isolated_depth, type, &new_opt);
+    prepare_iseq_build(iseq, name, path, realpath, first_lineno, script_lines, node ? &node->nd_loc : NULL, node ? nd_node_id(node) : -1, parent, isolated_depth, type, &new_opt);
 
     rb_iseq_compile_node(iseq, node);
     finish_iseq_build(iseq);
@@ -895,7 +899,7 @@ rb_iseq_new_with_callback(
     rb_iseq_t *iseq = iseq_alloc();
 
     if (!option) option = &COMPILE_OPTION_DEFAULT;
-    prepare_iseq_build(iseq, name, path, realpath, first_lineno, NULL, -1, parent, 0, type, option);
+    prepare_iseq_build(iseq, name, path, realpath, first_lineno, Qfalse, NULL, -1, parent, 0, type, option);
 
     rb_iseq_compile_callback(iseq, ifunc);
     finish_iseq_build(iseq);
@@ -1007,7 +1011,7 @@ iseq_load(VALUE data, const rb_iseq_t *parent, VALUE opt)
 
     make_compile_option(&option, opt);
     option.peephole_optimization = FALSE; /* because peephole optimization can modify original iseq */
-    prepare_iseq_build(iseq, name, path, realpath, first_lineno, &tmp_loc, NUM2INT(node_id),
+    prepare_iseq_build(iseq, name, path, realpath, first_lineno, Qfalse, &tmp_loc, NUM2INT(node_id),
                        parent, 0, (enum iseq_type)iseq_type, &option);
 
     rb_iseq_build_from_ary(iseq, misc, locals, params, exception, body);
@@ -1047,8 +1051,12 @@ rb_iseq_compile_with_option(VALUE src, VALUE file, VALUE realpath, VALUE line, V
     rb_ast_t *(*parse)(VALUE vparser, VALUE fname, VALUE file, int start);
     int ln;
     rb_ast_t *INITIALIZED ast;
+    int save_script_lines = 0;
 
     /* safe results first */
+    if (RTEST(opt) && RTEST(rb_hash_delete(opt, ID2SYM(rb_intern("save_script_lines"))))) {
+        save_script_lines = 1;
+    }
     make_compile_option(&option, opt);
     ln = NUM2INT(line);
     StringValueCStr(file);
@@ -1065,6 +1073,7 @@ rb_iseq_compile_with_option(VALUE src, VALUE file, VALUE realpath, VALUE line, V
         const rb_iseq_t *outer_scope = rb_iseq_new(NULL, name, name, Qnil, 0, ISEQ_TYPE_TOP);
         VALUE outer_scope_v = (VALUE)outer_scope;
         rb_parser_set_context(parser, outer_scope, FALSE);
+        if (save_script_lines) rb_parser_save_script_lines(parser);
         RB_GC_GUARD(outer_scope_v);
 	ast = (*parse)(parser, file, src, ln);
     }
@@ -2450,6 +2459,32 @@ iseqw_each_child(VALUE self)
     return self;
 }
 
+static VALUE
+iseqw_script_lines(VALUE self)
+{
+    const rb_iseq_t *iseq = iseqw_check(self);
+    return iseq->body->script_lines;
+}
+
+static VALUE
+iseqw_source(VALUE self)
+{
+    const rb_iseq_t *iseq = iseqw_check(self);
+    if (!RTEST(iseq->body->script_lines)) return Qnil;
+    rb_code_location_t *code_loc = &iseq->body->location.code_location;
+    VALUE lines =
+        rb_ary_subseq(
+            iseq->body->script_lines,
+            code_loc->beg_pos.lineno - 1,
+            code_loc->end_pos.lineno - code_loc->beg_pos.lineno + 1
+        );
+    VALUE last_line = RARRAY_AREF(lines, RARRAY_LEN(lines) - 1);
+    RARRAY_ASET(lines, RARRAY_LEN(lines) - 1, rb_str_substr(last_line, 0, code_loc->end_pos.column));
+    VALUE first_line = RARRAY_AREF(lines, 0);
+    RARRAY_ASET(lines, 0, rb_str_substr(first_line, code_loc->beg_pos.column, RSTRING_LEN(first_line) - code_loc->beg_pos.column));
+    return rb_ary_join(lines, Qnil);
+}
+
 static void
 push_event_info(const rb_iseq_t *iseq, rb_event_flag_t events, int line, VALUE ary)
 {
@@ -3648,6 +3683,8 @@ Init_ISeq(void)
     rb_define_method(rb_cISeq, "first_lineno", iseqw_first_lineno, 0);
     rb_define_method(rb_cISeq, "trace_points", iseqw_trace_points, 0);
     rb_define_method(rb_cISeq, "each_child", iseqw_each_child, 0);
+    rb_define_method(rb_cISeq, "script_lines", iseqw_script_lines, 0);
+    rb_define_method(rb_cISeq, "source", iseqw_source, 0);
 
 #if 0 /* TBD */
     rb_define_private_method(rb_cISeq, "marshal_dump", iseqw_marshal_dump, 0);
