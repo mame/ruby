@@ -10806,7 +10806,7 @@ seek_before_access(VALUE argp)
  *    IO.read("binfile", mode: "rb")   #=> "\xF7\x00\x00\x0E\x12"
  */
 
-static VALUE
+VALUE
 rb_io_s_read(int argc, VALUE *argv, VALUE io)
 {
     VALUE opt, offset;
