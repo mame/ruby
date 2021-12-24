@@ -1559,6 +1559,7 @@ class Reline::LineEditor
     else # single byte
       return if key.char >= 128 # maybe, first byte of multi byte
       method_symbol = @config.editing_mode.get_method(key.combined_char)
+      $stderr.puts [:foo, key, method_symbol].inspect
       if key.with_meta and method_symbol == :ed_unassigned
         # split ESC + key
         method_symbol = @config.editing_mode.get_method("\e".ord)
