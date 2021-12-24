@@ -1485,6 +1485,7 @@ class Reline::LineEditor
   end
 
   private def process_key(key, method_symbol)
+    p [:bar, key, method_symbol]
     if method_symbol and respond_to?(method_symbol, true)
       method_obj = method(method_symbol)
     else
