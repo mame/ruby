@@ -41,7 +41,6 @@ class Reline::TestCase < Test::Unit::TestCase
       if Reline::Unicode::EscapedChars.include?(c.ord)
         c
       else
-        p [:encoding, @line_editor.instance_variable_get(:@encoding)]
         c.encode(@line_editor.instance_variable_get(:@encoding), Encoding::UTF_8, **options)
       end
     }.join
@@ -61,6 +60,11 @@ class Reline::TestCase < Test::Unit::TestCase
 
   def input_keys(input, convert = true)
     input = convert_str(input) if convert
+    $stderr.puts "---"
+    $stderr.puts input.inspect
+    $stderr.puts input.chars.inspect
+    $stderr.puts input.chars.map {|c| c.bytesize }
+    $stderr.puts input.chars.map {|c| c.bytes }
     input.chars.each do |c|
       if c.bytesize == 1
         eighth_bit = 0b10000000
