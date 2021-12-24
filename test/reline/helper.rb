@@ -41,6 +41,7 @@ class Reline::TestCase < Test::Unit::TestCase
       if Reline::Unicode::EscapedChars.include?(c.ord)
         c
       else
+        p [:encoding, @line_editor.instance_variable_get(:@encoding)]
         c.encode(@line_editor.instance_variable_get(:@encoding), Encoding::UTF_8, **options)
       end
     }.join
