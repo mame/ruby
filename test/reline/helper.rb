@@ -60,12 +60,6 @@ class Reline::TestCase < Test::Unit::TestCase
 
   def input_keys(input, convert = true)
     input = convert_str(input) if convert
-    $stderr.puts "---"
-    $stderr.puts input.encoding.inspect
-    $stderr.puts input.inspect
-    $stderr.puts input.chars.inspect
-    $stderr.puts input.chars.map {|c| c.bytesize }.inspect
-    $stderr.puts input.chars.map {|c| c.bytes }.inspect
     input.chars.each do |c|
       if c.bytesize == 1
         eighth_bit = 0b10000000
@@ -80,6 +74,13 @@ class Reline::TestCase < Test::Unit::TestCase
           @line_editor.input_key(Reline::Key.new(b, b, false))
         end
       end
+    end
+  end
+
+  def input_raw_keys(input, convert = true)
+    input = convert_str(input) if convert
+    input.bytes.each do |b|
+      @line_editor.input_key(Reline::Key.new(b, b, false))
     end
   end
 

@@ -1485,7 +1485,6 @@ class Reline::LineEditor
   end
 
   private def process_key(key, method_symbol)
-    $stderr.puts [:bar, key, method_symbol].inspect
     if method_symbol and respond_to?(method_symbol, true)
       method_obj = method(method_symbol)
     else
@@ -1559,9 +1558,7 @@ class Reline::LineEditor
       end
     else # single byte
       return if key.char >= 128 # maybe, first byte of multi byte
-      $stderr.puts @config.editing_mode.inspect
       method_symbol = @config.editing_mode.get_method(key.combined_char)
-      $stderr.puts [:foo, key, method_symbol].inspect
       if key.with_meta and method_symbol == :ed_unassigned
         # split ESC + key
         method_symbol = @config.editing_mode.get_method("\e".ord)
