@@ -353,25 +353,25 @@ class Reline::KeyActor::Emacs < Reline::KeyActor::Base
     # 175 M-/
     :ed_unassigned,
     # 176 M-0
-    :ed_argument_digit,
+    :ed_unassigned,
     # 177 M-1
-    :ed_argument_digit,
+    :ed_unassigned,
     # 178 M-2
-    :ed_argument_digit,
+    :ed_unassigned,
     # 179 M-3
-    :ed_argument_digit,
+    :ed_unassigned,
     # 180 M-4
-    :ed_argument_digit,
+    :ed_unassigned,
     # 181 M-5
-    :ed_argument_digit,
+    :ed_unassigned,
     # 182 M-6
-    :ed_argument_digit,
+    :ed_unassigned,
     # 183 M-7
-    :ed_argument_digit,
+    :ed_unassigned,
     # 184 M-8
-    :ed_argument_digit,
+    :ed_unassigned,
     # 185 M-9
-    :ed_argument_digit,
+    :ed_unassigned,
     # 186 M-:
     :ed_unassigned,
     # 187 M-;
