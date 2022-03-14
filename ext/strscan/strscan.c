@@ -589,13 +589,7 @@ strscan_do_scan(VALUE self, VALUE pattern, int succptr, int getstr, int headonly
         }
         if (!tmpreg) RREGEXP(pattern)->usecnt--;
         if (tmpreg) {
-            if (RREGEXP(pattern)->usecnt) {
-                onig_free(re);
-            }
-            else {
-                onig_free(RREGEXP_PTR(pattern));
-                RREGEXP_PTR(pattern) = re;
-            }
+            onig_free(re);
         }
 
         if (ret == -2) rb_raise(ScanError, "regexp buffer overflow");

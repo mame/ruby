@@ -3268,7 +3268,8 @@ obj_free(rb_objspace_t *objspace, VALUE obj)
 	break;
       case T_REGEXP:
 	if (RANY(obj)->as.regexp.ptr) {
-	    onig_free(RANY(obj)->as.regexp.ptr);
+            extern void rb_regengine_free(VALUE obj);
+            rb_regengine_free(obj);
             RB_DEBUG_COUNTER_INC(obj_regexp_ptr);
 	}
 	break;
@@ -4658,11 +4659,11 @@ obj_memsize_of(VALUE obj, int use_all_types)
             size += st_memsize(RHASH_ST_TABLE(obj));
         }
 	break;
-      case T_REGEXP:
-	if (RREGEXP_PTR(obj)) {
-	    size += onig_memsize(RREGEXP_PTR(obj));
-	}
+      case T_REGEXP: {
+        extern size_t rb_regengine_memsize(VALUE obj);
+	size += rb_regengine_memsize(obj);
 	break;
+      }
       case T_DATA:
 	if (use_all_types) size += rb_objspace_data_type_memsize(obj);
 	break;

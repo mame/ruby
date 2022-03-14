@@ -3954,6 +3954,7 @@ AS_IF([test "${universal_binary-no}" = yes ], [
 : ${MJIT_LDSHARED=`echo "$LDSHARED" | sed ['s|\$(LD)|'"${LD}"'|g;s|\$(CC)|$(MJIT_CC)|g']`}
 
 MAINLIBS="$LIBS"
+MAINLIBS="$MAINLIBS -lrbre2 -lre2 -lstdc++" # XXX
 LIBS=$ORIG_LIBS
 AS_IF([test -n "${LIBS}"], [
     libspat=`echo "${LIBS}" | sed 's/[[][|.*$^]]/\\&/g;s/^  */ /;s/^  *$/ /'`

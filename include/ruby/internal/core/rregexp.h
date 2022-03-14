@@ -50,8 +50,6 @@
 #define RREGEXP_SRC_END  RREGEXP_SRC_END
 /** @endcond */
 
-struct re_patter_buffer;  /* a.k.a. OnigRegexType, defined in onigmo.h */
-
 /**
  * Ruby's regular expression.   A regexp is compiled into  its own intermediate
  * representation.  This  one holds that  info.  Regexp "match"  operation then
@@ -63,12 +61,9 @@ struct RRegexp {
     struct RBasic basic;
 
     /**
-     * The pattern buffer.   This is a quasi-opaque struct  that holds compiled
-     * intermediate representation of the regular expression.
-     *
-     * @note  Compilation of a regexp could be delayed until actual match.
+     * XXX
      */
-    struct re_pattern_buffer *ptr;
+    void *ptr;
 
     /** Source code of this expression. */
     const VALUE src;
