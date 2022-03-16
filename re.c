@@ -74,8 +74,8 @@ static void
 setup_regexp(VALUE re, const char *s, long len, rb_encoding *enc, int flags, onig_errmsg_buffer err,
 	const char *sourcefile, int sourceline)
 {
-    // RE2 supports only IGNORECASE and MULTILINE
-    if (flags & ~(ONIG_OPTION_IGNORECASE | ONIG_OPTION_MULTILINE)) {
+    // RE2 supports only MULTILINE
+    if (flags & ~ONIG_OPTION_MULTILINE) {
         goto onig;
     }
 
@@ -84,7 +84,6 @@ setup_regexp(VALUE re, const char *s, long len, rb_encoding *enc, int flags, oni
         goto onig;
 
     int opts = 0;
-    if (flags & ONIG_OPTION_IGNORECASE) opts |= RB_RE2_OPTIONS_IGNORECASE;
     if (flags & ONIG_OPTION_MULTILINE) opts |= RB_RE2_OPTIONS_MULTILINE;
     if (enc != rb_utf8_encoding()) opts |= RB_RE2_OPTIONS_BINARY;
 
@@ -154,7 +153,6 @@ static int regengine_options(VALUE re)
         rb_re2_regex_t *re2 = RREGEXP_PTR_RE2(re);
         int opts = rb_re2_options(re2);
         int ret = 0;
-        if (opts & RB_RE2_OPTIONS_IGNORECASE) ret |= ONIG_OPTION_IGNORECASE;
         if (opts & RB_RE2_OPTIONS_MULTILINE) ret |= ONIG_OPTION_MULTILINE;
         return ret;
     }
@@ -1755,14 +1753,13 @@ force_onig:
 
         int flags = regengine_options(re);
 
-        // RE2 supports only IGNORECASE and MULTILINE
-        if (flags & ~(ONIG_OPTION_IGNORECASE | ONIG_OPTION_MULTILINE)) goto onig;
+        // RE2 supports only MULTILINE
+        if (flags & ~ONIG_OPTION_MULTILINE) goto onig;
 
         // RE2 supports only Latin1 and UTF8
         if (enc != rb_utf8_encoding() && enc != rb_usascii_encoding() && enc != rb_ascii8bit_encoding()) goto onig;
 
         int opts = 0;
-        if (flags & ONIG_OPTION_IGNORECASE) opts |= RB_RE2_OPTIONS_IGNORECASE;
         if (flags & ONIG_OPTION_MULTILINE) opts |= RB_RE2_OPTIONS_MULTILINE;
         if (enc != rb_utf8_encoding()) opts |= RB_RE2_OPTIONS_BINARY;
 

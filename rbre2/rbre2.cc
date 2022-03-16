@@ -57,6 +57,9 @@ preprocess_regexp(const char *src, const char *src_end, const char **dst_p, cons
         switch (*p) {
             case '[':
                 COPY;
+                // RE2 does not support "character class in character class".
+                // Also, /[[:foo:]]/ matches with only ASCII characters.
+                if (in_class) goto fail;
                 in_class++;
                 break;
             case ']':
@@ -64,9 +67,34 @@ preprocess_regexp(const char *src, const char *src_end, const char **dst_p, cons
                 in_class--;
                 if (in_class < 0) in_class = 0;
                 break;
-            case '(':
-                COPY;
+            case '&':
+                // RE2 does not support character class intersection
+                if (in_class && p + 1 < src_end && p[1] == '&') goto fail;
+            case '{':
+                if (in_class == 0) {
+                    if (p + 1 == src_end || p[1] != ',') {
+                        COPY;
+                    }
+                    else {
+                        int i = 2;
+                        while (p + i < src_end && isdigit(p[i])) i++;
+                        if (i >= 3 && p + i < src_end && p[i] == '}') {
+                            // replace /a{,3}/ with /a{0,3}/
+                            COPY;
+                            APPEND("0");
+                            COPY;
+                        }
+                        else {
+                            COPY;
+                        }
+                    }
+                }
+                else {
+                    COPY;
+                }
                 break;
+            case '^':
+                if (in_class == 0) goto fail;
             case '\\':
                 if (p + 1 == src_end) {
                     // XXX: parse error
@@ -82,12 +110,10 @@ preprocess_regexp(const char *src, const char *src_end, const char **dst_p, cons
                         break;
                     case 's':
                         if (in_class) {
-                            if (ascii) APPEND("\\t\\n\\v\\f\\r\\x20")
-                            else APPEND("\\t\\n\\v\\f\\r\\x{0085}\\p{Zl}\\p{Zp}\\p{Zs}");
+                            APPEND("\\t\\n\\v\\f\\r\\x20")
                         }
                         else {
-                            if (ascii) APPEND("[\\t\\n\\v\\f\\r\\x20]")
-                            else APPEND("[\\t\\n\\v\\f\\r\\x{0085}\\p{Zl}\\p{Zp}\\p{Zs}]");
+                            APPEND("[\\t\\n\\v\\f\\r\\x20]")
                         }
                         p += 2;
                         break;
@@ -136,7 +162,6 @@ rb_re2_new(rb_re2_regex_t **reg, const char *pattern, const char *pattern_end, i
 
     RE2::Options opts;
     opts.set_encoding(options & RB_RE2_OPTIONS_BINARY ? RE2::Options::EncodingLatin1 : RE2::Options::EncodingUTF8);
-    opts.set_case_sensitive(options & RB_RE2_OPTIONS_IGNORECASE ? false : true);
     opts.set_dot_nl(options & RB_RE2_OPTIONS_MULTILINE ? true : false);
     opts.set_log_errors(false);
 
@@ -165,7 +190,6 @@ rb_re2_options(rb_re2_regex_t *reg) {
     const RE2::Options *opts = &reg->options();
     int ret = 0;
     if (opts->encoding() == RE2::Options::EncodingLatin1) ret |= RB_RE2_OPTIONS_BINARY;
-    if (!opts->case_sensitive()) ret |= RB_RE2_OPTIONS_IGNORECASE;
     if (opts->dot_nl()) ret |= RB_RE2_OPTIONS_MULTILINE;
     return ret;
 }
@@ -204,7 +228,7 @@ match(rb_re2_regex_t *reg, const char *str, const char *end, const char *start, 
 ptrdiff_t
 rb_re2_match(rb_re2_regex_t *reg, const char *str, const char *end, const char *at, rb_re2_match_data_t *mdata)
 {
-    return match(reg, str, end, at, end, RE2::ANCHOR_BOTH, mdata);
+    return match(reg, str, end, at, end, RE2::ANCHOR_START, mdata);
 }
 
 ptrdiff_t

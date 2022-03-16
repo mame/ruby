@@ -21,9 +21,8 @@ extern "C" {
 #endif
 #endif
 
-#define RB_RE2_OPTIONS_IGNORECASE 1
-#define RB_RE2_OPTIONS_MULTILINE 2
-#define RB_RE2_OPTIONS_BINARY 4
+#define RB_RE2_OPTIONS_MULTILINE 1
+#define RB_RE2_OPTIONS_BINARY 2
 
 void rb_re2_init(int (*resize_)(rb_re2_match_data_t *mdata, int n), void (*free_)(rb_re2_match_data_t *mdata));
 

@@ -13023,8 +13023,8 @@ reg_named_capture_assign(struct parser_params* p, VALUE regexp, const YYLTYPE *l
     arg.succ_block = 0;
     arg.loc = loc;
 
-    extern int rb_regimpl_foreach_name(VALUE re, int (*func)(const OnigUChar*, const OnigUChar*,int,int*,OnigRegex,void*), void* arg);
-    rb_regimpl_foreach_name(regexp, reg_named_capture_assign_iter, &arg);
+    extern int rb_regengine_foreach_name(VALUE re, int (*func)(const OnigUChar*, const OnigUChar*,int,int*,OnigRegex,void*), void* arg);
+    rb_regengine_foreach_name(regexp, reg_named_capture_assign_iter, &arg);
 
     if (!arg.succ_block) return 0;
     return arg.succ_block->nd_next;
