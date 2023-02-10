@@ -327,7 +327,7 @@ VALUE rsock_freeaddrinfo(VALUE arg);
 int rb_getnameinfo(const struct sockaddr *sa, socklen_t salen, char *host, size_t hostlen, char *serv, size_t servlen, int flags);
 int rsock_fd_family(int fd);
 struct rb_addrinfo *rsock_addrinfo(VALUE host, VALUE port, int family, int socktype, int flags);
-struct rb_addrinfo *rsock_getaddrinfo(VALUE host, VALUE port, struct addrinfo *hints, int socktype_hack);
+struct rb_addrinfo *rsock_getaddrinfo(VALUE host, VALUE port, struct addrinfo *hints, int socktype_hack, VALUE timeout);
 
 VALUE rsock_fd_socket_addrinfo(int fd, struct sockaddr *addr, socklen_t len);
 VALUE rsock_io_socket_addrinfo(VALUE io, struct sockaddr *addr, socklen_t len);
@@ -465,6 +465,13 @@ const char *inet_ntop(int, const void *, char *, size_t);
 # define inet_ntop(f,a,n,l)      rb_w32_inet_ntop(f,a,n,l)
 #elif defined _MSC_VER && RUBY_MSVCRT_VERSION < 90
 const char *WSAAPI inet_ntop(int, const void *, char *, size_t);
+#endif
+
+#ifdef HAVE_ARES_H
+# include <ares.h>
+# define USE_ARES 1
+#else
+# define USE_ARES 0
 #endif
 
 #endif

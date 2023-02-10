@@ -443,6 +443,10 @@ if have_type("struct tcp_info", headers)
   have_struct_member('struct tcp_info', 'tcpi_snd_zerowin', headers)
 end
 
+if have_header("ares.h")
+  have_library("cares")
+end
+
 case RUBY_PLATFORM
 when /mswin(32|64)|mingw/
   test_func = "WSACleanup"

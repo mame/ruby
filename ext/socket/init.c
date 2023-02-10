@@ -755,6 +755,10 @@ rsock_getfamily(rb_io_t *fptr)
 void
 rsock_init_socket_init(void)
 {
+#if USE_ARES
+    ares_library_init(ARES_LIB_INIT_ALL);
+#endif
+
     /*
      * SocketError is the error class for socket.
      */

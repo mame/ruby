@@ -1183,7 +1183,7 @@ sock_s_getaddrinfo(int argc, VALUE *argv, VALUE _)
         norevlookup = rsock_do_not_reverse_lookup;
     }
 
-    res = rsock_getaddrinfo(host, port, &hints, 0);
+    res = rsock_getaddrinfo(host, port, &hints, 0, Qnil);
 
     ret = make_addrinfo(res, norevlookup);
     rb_freeaddrinfo(res);
@@ -1279,7 +1279,7 @@ sock_s_getnameinfo(int argc, VALUE *argv, VALUE _)
         hints.ai_socktype = (fl & NI_DGRAM) ? SOCK_DGRAM : SOCK_STREAM;
         /* af */
         hints.ai_family = NIL_P(af) ? PF_UNSPEC : rsock_family_arg(af);
-        res = rsock_getaddrinfo(host, port, &hints, 0);
+        res = rsock_getaddrinfo(host, port, &hints, 0, Qnil);
         sap = res->ai->ai_addr;
         salen = res->ai->ai_addrlen;
     }

@@ -174,6 +174,215 @@ parse_numeric_port(const char *service, int *portp)
 #endif
 
 #ifndef GETADDRINFO_EMU
+
+#if USE_ARES
+
+static int
+convert_libc2ares_flags(int libc_flags)
+{
+    int ares_flags = 0;
+#define CONV(name) if (libc_flags & name) ares_flags |= ARES_##name;
+    CONV(AI_CANONNAME);
+    CONV(AI_NUMERICHOST);
+    CONV(AI_PASSIVE);
+    CONV(AI_NUMERICSERV);
+    CONV(AI_V4MAPPED);
+    CONV(AI_ALL);
+    CONV(AI_ADDRCONFIG);
+    //CONV(AI_NOSORT);
+    //CONV(AI_ENVHOSTS);
+#undef CONV
+    return ares_flags;
+}
+
+static int
+convert_ares2libc_flags(int ares_flags)
+{
+    int libc_flags = 0;
+#define CONV(name) if (ares_flags & ARES_##name) libc_flags |= name;
+    CONV(AI_CANONNAME);
+    CONV(AI_NUMERICHOST);
+    CONV(AI_PASSIVE);
+    CONV(AI_NUMERICSERV);
+    CONV(AI_V4MAPPED);
+    CONV(AI_ALL);
+    CONV(AI_ADDRCONFIG);
+    //CONV(AI_NOSORT);
+    //CONV(AI_ENVHOSTS);
+#undef CONV
+    return libc_flags;
+}
+
+static struct addrinfo *
+convert_ares2libc_addrinfo(struct ares_addrinfo *ares_ai)
+{
+    struct addrinfo *libc_ai, **ptr = &libc_ai;
+    struct ares_addrinfo_node *node = ares_ai->nodes;
+
+    while (node) {
+        *ptr = NULL;
+        *ptr = (struct addrinfo *)xmalloc(sizeof(struct addrinfo));
+        (*ptr)->ai_flags = convert_ares2libc_flags(node->ai_flags);
+        (*ptr)->ai_family = node->ai_family;
+        (*ptr)->ai_socktype = node->ai_socktype;
+        (*ptr)->ai_protocol = node->ai_protocol;
+        (*ptr)->ai_addrlen = node->ai_addrlen;
+        (*ptr)->ai_canonname = NULL; // TODO
+        (*ptr)->ai_addr = NULL;
+        (*ptr)->ai_addr = (struct sockaddr *)xmalloc(sizeof(struct sockaddr));
+        memcpy((*ptr)->ai_addr, node->ai_addr, sizeof(struct sockaddr));
+        ptr = &(*ptr)->ai_next;
+        node = node->ai_next;
+    }
+    *ptr = NULL;
+
+    return libc_ai;
+}
+
+struct rb_ares_getaddrinfo_data {
+    const char *node;
+    const char *service;
+    const struct addrinfo *hints;
+    struct timeval *timeout;
+
+    ares_channel channel;
+    int done, fdset_allocated;
+    rb_fdset_t readers, writers;
+    int status;
+    struct ares_addrinfo *result;
+
+    struct rb_addrinfo *res;
+};
+
+static void
+do_ares_getaddrinfo_callback(void *arg, int status, int timeouts, struct ares_addrinfo *result)
+{
+    struct rb_ares_getaddrinfo_data *data = (struct rb_ares_getaddrinfo_data *)arg;
+
+    data->done = 1;
+    data->status = status;
+    data->result = result;
+}
+
+static VALUE
+do_ares_getaddrinfo_core(VALUE arg)
+{
+    struct rb_ares_getaddrinfo_data *data = (struct rb_ares_getaddrinfo_data *)arg;
+    struct ares_addrinfo_hints hints = {
+        .ai_flags = convert_libc2ares_flags(data->hints->ai_flags),
+        .ai_family = data->hints->ai_family,
+        .ai_socktype = data->hints->ai_socktype,
+        .ai_protocol = data->hints->ai_protocol
+    };
+
+    data->done = 0;
+
+    ares_getaddrinfo(data->channel, data->node, data->service, &hints, do_ares_getaddrinfo_callback, &data);
+
+    while (!data->done) {
+        int i, nfds;
+
+        fd_set readers, writers;
+        FD_ZERO(&readers);
+        FD_ZERO(&writers);
+        nfds = ares_fds(data->channel, &readers, &writers);
+        if (nfds == 0) return EAI_NONAME;
+
+        // Now assumes the second rb_fd_init should succeed if the first one succeeded
+        rb_fd_init(&data->readers);
+        rb_fd_init(&data->writers);
+        data->fdset_allocated = 1;
+
+        for (i = 0; i < nfds; i++) {
+            if (FD_ISSET(i, &readers)) rb_fd_set(i, &data->readers);
+            if (FD_ISSET(i, &writers)) rb_fd_set(i, &data->writers);
+        }
+
+        if (rb_thread_fd_select(nfds, &data->readers, &data->writers, NULL, data->timeout) == 0) {
+            // TODO: We need to check if the timeout is really exceeded.
+            // The select may return due to a signal interruption
+            return (VALUE)EAI_AGAIN;
+        }
+
+        rb_fd_term(&data->readers);
+        rb_fd_term(&data->writers);
+        data->fdset_allocated = 0;
+
+        ares_process(data->channel, &readers, &writers);
+    }
+
+    if (data->status == ARES_SUCCESS) {
+        data->res = (struct rb_addrinfo *)xmalloc(sizeof(struct rb_addrinfo));
+        data->res->allocated_by_malloc = 0;
+        data->res->ai = convert_ares2libc_addrinfo(data->result);
+        data->res->allocated_by_malloc = 1;
+        return (VALUE)0;
+    }
+    else {
+        switch (data->status) {
+            case ARES_ENOTIMP:
+                return (VALUE)EAI_FAMILY;
+            case ARES_ENOTFOUND:
+                return (VALUE)EAI_NONAME;
+            case ARES_ENOMEM:
+                return (VALUE)EAI_MEMORY;
+            case ARES_ECANCELLED:
+            case ARES_EDESTRUCTION:
+                return (VALUE)EAI_AGAIN; /* appropriate? */
+            default: // just for case
+                return EAI_NONAME;
+        }
+    }
+}
+
+static VALUE
+do_ares_getaddrinfo_free(VALUE arg)
+{
+    struct rb_ares_getaddrinfo_data *data = (struct rb_ares_getaddrinfo_data *)arg;
+
+    ares_destroy(data->channel);
+
+    if (data->result) ares_freeaddrinfo(data->result);
+
+    if (data->res && data->res->allocated_by_malloc == 0) {
+        struct addrinfo *ptr = data->res->ai, *ptr2;
+        while (ptr) {
+            if (ptr->ai_addr) xfree(ptr->ai_addr);
+            ptr2 = ptr->ai_next;
+            xfree(ptr);
+            ptr = ptr2;
+        }
+    }
+
+    if (data->fdset_allocated) {
+        rb_fd_term(&data->readers);
+        rb_fd_term(&data->writers);
+    }
+
+    return Qnil;
+}
+
+static int
+do_ares_getaddrinfo(const char *hostp, const char *portp, const struct addrinfo *hints, struct rb_addrinfo **res, struct timeval *timeout)
+{
+    struct rb_ares_getaddrinfo_data data = {
+        .node = hostp,
+        .service = portp,
+        .hints = hints,
+        .timeout = timeout
+    };
+
+    if (ares_init(&data.channel) != ARES_SUCCESS) return EAI_MEMORY;
+
+    int error = (int)rb_ensure(do_ares_getaddrinfo_core, (VALUE)&data, do_ares_getaddrinfo_free, (VALUE)&data);
+
+    *res = data.res;
+
+    return error;
+}
+
+#else // USE_ARES
+
 struct getaddrinfo_arg
 {
     const char *node;
@@ -197,6 +406,8 @@ nogvl_getaddrinfo(void *arg)
 #endif
     return (void *)(VALUE)ret;
 }
+#endif
+
 #endif
 
 static int
@@ -515,7 +726,7 @@ rb_scheduler_getaddrinfo(VALUE scheduler, VALUE host, const char *service,
 }
 
 struct rb_addrinfo*
-rsock_getaddrinfo(VALUE host, VALUE port, struct addrinfo *hints, int socktype_hack)
+rsock_getaddrinfo(VALUE host, VALUE port, struct addrinfo *hints, int socktype_hack, VALUE timeout)
 {
     struct rb_addrinfo* res = NULL;
     struct addrinfo *ai;
@@ -550,6 +761,15 @@ rsock_getaddrinfo(VALUE host, VALUE port, struct addrinfo *hints, int socktype_h
         }
 
         if (!resolved) {
+#if USE_ARES
+            struct timeval timeout_timeval, *timeoutp = NULL;
+            if (!NIL_P(timeout)) {
+                timeout_timeval = rb_time_interval(timeout);
+                timeoutp = &timeout_timeval;
+            }
+            error = do_ares_getaddrinfo(hostp, portp, hints, &res, timeoutp);
+#else
+
 #ifdef GETADDRINFO_EMU
             error = getaddrinfo(hostp, portp, hints, &ai);
 #else
@@ -566,6 +786,7 @@ rsock_getaddrinfo(VALUE host, VALUE port, struct addrinfo *hints, int socktype_h
                 res->allocated_by_malloc = 0;
                 res->ai = ai;
             }
+#endif
         }
     }
 
@@ -601,7 +822,7 @@ rsock_addrinfo(VALUE host, VALUE port, int family, int socktype, int flags)
     hints.ai_family = family;
     hints.ai_socktype = socktype;
     hints.ai_flags = flags;
-    return rsock_getaddrinfo(host, port, &hints, 1);
+    return rsock_getaddrinfo(host, port, &hints, 1, Qnil);
 }
 
 VALUE
@@ -883,7 +1104,7 @@ call_getaddrinfo(VALUE node, VALUE service,
         hints.ai_flags = NUM2INT(flags);
     }
 
-    res = rsock_getaddrinfo(node, service, &hints, socktype_hack);
+    res = rsock_getaddrinfo(node, service, &hints, socktype_hack, timeout);
 
     if (res == NULL)
         rb_raise(rb_eSocket, "host not found");
