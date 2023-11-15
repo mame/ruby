@@ -283,7 +283,7 @@ class Reline::LineEditor
     begin
     @continuous_insertion_buffer = String.new(encoding: @encoding)
     rescue TypeError
-      p [:check, encoding, Reline::IOGate, Reline::IOGate.encoding]
+      p [:check, encoding, @encoding, Reline::IOGate, Reline::IOGate.encoding]
       raise
     end
     @scroll_partial_screen = nil
