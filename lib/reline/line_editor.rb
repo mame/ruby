@@ -280,7 +280,12 @@ class Reline::LineEditor
     @cached_prompt_list = nil
     @prompt_cache_time = nil
     @eof = false
+    begin
     @continuous_insertion_buffer = String.new(encoding: @encoding)
+    rescue TypeError
+      p [:check, encoding, Reline::IOGate, Reline::IOGate.encoding]
+      raise
+    end
     @scroll_partial_screen = nil
     @prev_mode_string = nil
     @drop_terminate_spaces = false
