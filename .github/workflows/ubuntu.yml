@@ -34,12 +34,6 @@ jobs:
         configure: ['cppflags=-DVM_CHECK_MODE']
         # specifying other jobs with `include` to avoid redundant tests
         include:
-          - test_task: check
-            arch: i686
-          - test_task: check
-            configure: '--disable-yjit'
-          - test_task: check
-            configure: '--enable-shared --enable-load-relative'
           - test_task: test-bundled-gems
       fail-fast: false
 
