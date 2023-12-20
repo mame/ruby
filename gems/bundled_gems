@@ -6,4 +6,4 @@
 # - revision: revision in repository-url to test
 #   if `revision` is not given, "v"+`version` or `version` will be used.
 rbs             3.4.0.pre.1   https://github.com/ruby/rbs
-typeprof        0.21.8  https://github.com/ruby/typeprof 775de1d7574d9283f8541982379b98aec8399bd6
+typeprof        0.21.8  https://github.com/ruby/typeprof 89556d0595ddab54a07a4cf43748fffbaf1c301b
