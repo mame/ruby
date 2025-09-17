@@ -1376,7 +1376,7 @@ pm_iseq_compile_with_option(VALUE src, VALUE file, VALUE realpath, VALUE line, V
     VALUE error;
 
     if (parse_file) {
-        error = pm_load_parse_file(&result, src, ruby_vm_keep_script_lines ? &script_lines : NULL);
+        error = pm_load_parse_file(&result, src, NULL, ruby_vm_keep_script_lines ? &script_lines : NULL);
     }
     else {
         error = pm_parse_string(&result, src, file, ruby_vm_keep_script_lines ? &script_lines : NULL);
@@ -1838,7 +1838,7 @@ iseqw_s_compile_file_prism(int argc, VALUE *argv, VALUE self)
     result.node.coverage_enabled = 1;
 
     VALUE script_lines;
-    VALUE error = pm_load_parse_file(&result, file, ruby_vm_keep_script_lines ? &script_lines : NULL);
+    VALUE error = pm_load_parse_file(&result, file, NULL, ruby_vm_keep_script_lines ? &script_lines : NULL);
 
     if (error == Qnil) {
         make_compile_option(&option, opt);

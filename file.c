@@ -6612,7 +6612,7 @@ ruby_is_fd_loadable(int fd)
 
 #ifndef _WIN32
 int
-rb_file_load_ok(const char *path)
+rb_file_load_ok(const char *path, int *fd_ptr)
 {
     int ret = 1;
     /*
@@ -6634,7 +6634,12 @@ rb_file_load_ok(const char *path)
     }
     rb_update_max_fd(fd);
     ret = ruby_is_fd_loadable(fd);
-    (void)close(fd);
+    if (ret && fd_ptr) {
+        *fd_ptr = fd;
+    }
+    else {
+        (void)close(fd);
+    }
     return ret;
 }
 #endif
@@ -6661,7 +6666,7 @@ copy_path_class(VALUE path, VALUE orig)
 }
 
 int
-rb_find_file_ext(VALUE *filep, const char *const *ext)
+rb_find_file_ext_internal(VALUE *filep, const char *const *ext, int *fd)
 {
     const char *f = StringValueCStr(*filep);
     VALUE fname = *filep, load_path, tmp;
@@ -6682,7 +6687,7 @@ rb_find_file_ext(VALUE *filep, const char *const *ext)
         fnlen = RSTRING_LEN(fname);
         for (i=0; ext[i]; i++) {
             rb_str_cat2(fname, ext[i]);
-            if (rb_file_load_ok(RSTRING_PTR(fname))) {
+            if (rb_file_load_ok(RSTRING_PTR(fname), fd)) {
                 *filep = copy_path_class(fname, *filep);
                 return (int)(i+1);
             }
@@ -6707,7 +6712,7 @@ rb_find_file_ext(VALUE *filep, const char *const *ext)
             RB_GC_GUARD(str) = rb_get_path(str);
             if (RSTRING_LEN(str) == 0) continue;
             rb_file_expand_path_internal(fname, str, 0, 0, tmp);
-            if (rb_file_load_ok(RSTRING_PTR(tmp))) {
+            if (rb_file_load_ok(RSTRING_PTR(tmp), fd)) {
                 *filep = copy_path_class(tmp, *filep);
                 return (int)(j+1);
             }
@@ -6719,8 +6724,14 @@ rb_find_file_ext(VALUE *filep, const char *const *ext)
     return 0;
 }
 
+int
+rb_find_file_ext(VALUE *filep, const char *const *ext)
+{
+    return rb_find_file_ext_internal(filep, ext, NULL);
+}
+
 VALUE
-rb_find_file(VALUE path)
+rb_find_file_internal(VALUE path, int *fd)
 {
     VALUE tmp, load_path;
     const char *f = StringValueCStr(path);
@@ -6734,7 +6745,7 @@ rb_find_file(VALUE path)
     }
 
     if (expanded || rb_is_absolute_path(f) || is_explicit_relative(f)) {
-        if (!rb_file_load_ok(f)) return 0;
+        if (!rb_file_load_ok(f, fd)) return 0;
         if (!expanded)
             path = copy_path_class(file_expand_path_1(path), path);
         return path;
@@ -6752,7 +6763,7 @@ rb_find_file(VALUE path)
             if (RSTRING_LEN(str) > 0) {
                 rb_file_expand_path_internal(path, str, 0, 0, tmp);
                 f = RSTRING_PTR(tmp);
-                if (rb_file_load_ok(f)) goto found;
+                if (rb_file_load_ok(f, fd)) goto found;
             }
         }
         rb_str_resize(tmp, 0);
@@ -6764,6 +6775,12 @@ rb_find_file(VALUE path)
 
   found:
     return copy_path_class(tmp, path);
+}
+
+VALUE
+rb_find_file(VALUE path)
+{
+    return rb_find_file_internal(path, NULL);
 }
 
 #define define_filetest_function(name, func, argc) do {        \

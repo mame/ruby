@@ -2224,7 +2224,7 @@ prism_script(ruby_cmdline_options_t *opt, pm_parse_result_t *result)
         pm_options_command_line_set(options, command_line);
         pm_options_shebang_callback_set(options, prism_script_shebang_callback, (void *) opt);
 
-        error = pm_load_file(result, script_name, true);
+        error = pm_load_file(result, script_name, NULL, true);
 
         // If reading the file did not error, at that point we load the command
         // line options. We do it in this order so that if the main script fails

@@ -817,7 +817,7 @@ iseq_eval_in_namespace(VALUE arg)
 }
 
 static inline void
-load_iseq_eval(rb_execution_context_t *ec, VALUE fname)
+load_iseq_eval(rb_execution_context_t *ec, VALUE fname, int *fd)
 {
     GET_loading_vm_ns();
     const rb_namespace_t *loading_ns = rb_loading_namespace();
@@ -834,7 +834,7 @@ load_iseq_eval(rb_execution_context_t *ec, VALUE fname)
             result.options.line = 1;
             result.node.coverage_enabled = 1;
 
-            VALUE error = pm_load_parse_file(&result, fname, NULL);
+            VALUE error = pm_load_parse_file(&result, fname, fd, NULL);
 
             if (error == Qnil) {
                 int error_state;
@@ -915,7 +915,7 @@ load_wrapping(rb_execution_context_t *ec, VALUE fname, VALUE load_wrapper)
     EC_PUSH_TAG(ec);
     state = EC_EXEC_TAG();
     if (state == TAG_NONE) {
-        load_iseq_eval(ec, fname);
+        load_iseq_eval(ec, fname, NULL);
     }
     EC_POP_TAG();
 
@@ -958,7 +958,7 @@ rb_load_internal(VALUE fname, VALUE wrap)
         state = load_wrapping(ec, fname, namespace);
     }
     else {
-        load_iseq_eval(ec, fname);
+        load_iseq_eval(ec, fname, NULL);
     }
     raise_load_if_failed(ec, state);
 }
@@ -996,7 +996,7 @@ load_entrypoint_internal(VALUE fname, VALUE wrap)
 
     path = rb_find_file(fname);
     if (!path) {
-        if (!rb_file_load_ok(RSTRING_PTR(fname)))
+        if (!rb_file_load_ok(RSTRING_PTR(fname), NULL))
             load_failed(orig_fname);
         path = fname;
     }
@@ -1189,7 +1189,7 @@ rb_f_require_relative(VALUE obj, VALUE fname)
 typedef int (*feature_func)(vm_ns_t *vm_ns, const char *feature, const char *ext, int rb, int expanded, const char **fn);
 
 static int
-search_required(vm_ns_t *vm_ns, VALUE fname, volatile VALUE *path, feature_func rb_feature_p)
+search_required(vm_ns_t *vm_ns, VALUE fname, volatile VALUE *path, feature_func rb_feature_p, int *fd)
 {
     VALUE tmp;
     char *ext, *ftptr;
@@ -1204,7 +1204,7 @@ search_required(vm_ns_t *vm_ns, VALUE fname, volatile VALUE *path, feature_func 
                 if (loading) *path = rb_filesystem_str_new_cstr(loading);
                 return 'r';
             }
-            if ((tmp = rb_find_file(fname)) != 0) {
+            if ((tmp = rb_find_file_internal(fname, fd)) != 0) {
                 ext = strrchr(ftptr = RSTRING_PTR(tmp), '.');
                 if (!rb_feature_p(vm_ns, ftptr, ext, TRUE, TRUE, &loading) || loading)
                     *path = tmp;
@@ -1245,7 +1245,7 @@ search_required(vm_ns_t *vm_ns, VALUE fname, volatile VALUE *path, feature_func 
         return 'r';
     }
     tmp = fname;
-    const unsigned int type = rb_find_file_ext(&tmp, ft == 's' ? ruby_ext : loadable_ext);
+    const unsigned int type = rb_find_file_ext_internal(&tmp, ft == 's' ? ruby_ext : loadable_ext, ft == 's' ? NULL : fd);
 
     // Check if it's a statically linked extension when
     // not already a feature and not found as a dynamic library.
@@ -1339,7 +1339,7 @@ rb_resolve_feature_path(VALUE klass, VALUE fname)
 
     fname = rb_get_path(fname);
     path = rb_str_encode_ospath(fname);
-    found = search_required(vm_ns, path, &path, no_feature_p);
+    found = search_required(vm_ns, path, &path, no_feature_p, NULL);
 
     switch (found) {
       case 'r':
@@ -1429,9 +1429,10 @@ require_internal(rb_execution_context_t *ec, VALUE fname, int exception, bool wa
     if ((state = EC_EXEC_TAG()) == TAG_NONE) {
         VALUE handle;
         int found;
+        int fd = -1;
 
         RUBY_DTRACE_HOOK(FIND_REQUIRE_ENTRY, RSTRING_PTR(fname));
-        found = search_required(vm_ns, path, &saved_path, rb_feature_p);
+        found = search_required(vm_ns, path, &saved_path, rb_feature_p, &fd);
         RUBY_DTRACE_HOOK(FIND_REQUIRE_RETURN, RSTRING_PTR(fname));
         path = saved_path;
 
@@ -1459,7 +1460,7 @@ require_internal(rb_execution_context_t *ec, VALUE fname, int exception, bool wa
                         load_wrapping(saved.ec, path, vm_ns->ns->ns_object);
                     }
                     else {
-                        load_iseq_eval(saved.ec, path);
+                        load_iseq_eval(saved.ec, path, &fd);
                     }
                     break;
 

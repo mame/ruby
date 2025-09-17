@@ -11187,7 +11187,7 @@ pm_parse_file_script_lines(const pm_scope_node_t *scope_node, const pm_parser_t 
 // file, with additional handling for files that require blocking to properly
 // read (e.g. pipes).
 static pm_string_init_result_t
-pm_read_file(pm_string_t *string, const char *filepath)
+pm_read_file(pm_string_t *string, const char *filepath, int *passed_fd)
 {
 #ifdef _WIN32
     // Open the file for reading.
@@ -11256,9 +11256,15 @@ pm_read_file(pm_string_t *string, const char *filepath)
 #elif defined(_POSIX_MAPPED_FILES)
     // Open the file for reading
     const int open_mode = O_RDONLY | O_NONBLOCK;
-    int fd = open(filepath, open_mode);
-    if (fd == -1) {
-        return PM_STRING_INIT_ERROR_GENERIC;
+    int fd;
+    if (passed_fd && *passed_fd != -1) {
+        fd = *passed_fd;
+        *passed_fd = -1;
+    } else {
+        fd = open(filepath, open_mode);
+        if (fd == -1) {
+            return PM_STRING_INIT_ERROR_GENERIC;
+        }
     }
 
     // Stat the file to get the file size
@@ -11329,9 +11335,9 @@ pm_read_file(pm_string_t *string, const char *filepath)
  * be read.
  */
 VALUE
-pm_load_file(pm_parse_result_t *result, VALUE filepath, bool load_error)
+pm_load_file(pm_parse_result_t *result, VALUE filepath, int *fd, bool load_error)
 {
-    pm_string_init_result_t init_result = pm_read_file(&result->input, RSTRING_PTR(filepath));
+    pm_string_init_result_t init_result = pm_read_file(&result->input, RSTRING_PTR(filepath), fd);
 
     if (init_result == PM_STRING_INIT_SUCCESS) {
         pm_options_frozen_string_literal_init(&result->options);
@@ -11406,9 +11412,9 @@ pm_parse_file(pm_parse_result_t *result, VALUE filepath, VALUE *script_lines)
  * cannot be read or if it cannot be parsed properly.
  */
 VALUE
-pm_load_parse_file(pm_parse_result_t *result, VALUE filepath, VALUE *script_lines)
+pm_load_parse_file(pm_parse_result_t *result, VALUE filepath, int *fd, VALUE *script_lines)
 {
-    VALUE error = pm_load_file(result, filepath, false);
+    VALUE error = pm_load_file(result, filepath, fd, false);
     if (NIL_P(error)) {
         error = pm_parse_file(result, filepath, script_lines);
     }
