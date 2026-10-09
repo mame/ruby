@@ -709,6 +709,22 @@ p Foo::Bar
     end
   end
 
+  def test_autoload_joining_thread_while_required_directly
+    Dir.mktmpdir('autoload') do |tmpdir|
+      File.write("#{tmpdir}/autoload-join.rb", "#{<<~'begin;'}\n#{<<~'end;'}")
+      begin;
+        class AutoloadJoin; end
+        $value = Thread.new { AutoloadJoin }.value
+      end;
+      assert_separately(%W[-I #{tmpdir}], "#{<<-'begin;'}\n#{<<-'end;'}")
+      begin;
+        autoload :AutoloadJoin, 'autoload-join'
+        require 'autoload-join'
+        assert_equal AutoloadJoin, $value
+      end;
+    end
+  end
+
   private
 
   def assert_separately(*args, **kwargs)
