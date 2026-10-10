@@ -2928,7 +2928,8 @@ check_autoload_required(VALUE mod, ID id, const char **loadingpath)
         return 0;
     }
 
-    VALUE feature = autoload_data->feature;
+    loading = RSTRING_PTR(autoload_data->feature);
+    int provided = rb_feature_provided(loading, &loading);
 
     /*
      * if somebody else is autoloading, we MUST wait for them, since
@@ -2936,13 +2937,12 @@ check_autoload_required(VALUE mod, ID id, const char **loadingpath)
      * completes.  We must wait until autoload_const_set finishes in
      * the other thread.
      */
-    if (autoload_by_someone_else(autoload_data)) {
+    if (autoload_by_someone_else(autoload_data) &&
+        !(loading && rb_require_circular_p(autoload_data->feature, false))) {
         return autoload_const_value;
     }
 
-    loading = RSTRING_PTR(feature);
-
-    if (!rb_feature_provided(loading, &loading)) {
+    if (!provided) {
         return autoload_const_value;
     }
 

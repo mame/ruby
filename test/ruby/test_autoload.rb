@@ -709,6 +709,32 @@ p Foo::Bar
     end
   end
 
+  def test_autoload_while_required_directly_before_assignment
+    Dir.mktmpdir('autoload') do |tmpdir|
+      File.write("#{tmpdir}/test-bug-15599.rb", "#{<<~'begin;'}\n#{<<~'end;'}")
+      begin;
+        $q1 << :started
+        $q2.pop
+        class TestBug15599
+          def a1; end
+        end
+      end;
+      assert_separately(%W[-I #{tmpdir}], "#{<<-'begin;'}\n#{<<-'end;'}")
+      begin;
+        $q1, $q2 = Thread::Queue.new, Thread::Queue.new
+        autoload :TestBug15599, 'test-bug-15599'
+        t1 = Thread.new { require 'test-bug-15599' }
+        $q1.pop
+        t2 = Thread.new { TestBug15599.instance_methods(false) }
+        Thread.pass until t2.stop?
+        assert_equal 'test-bug-15599', autoload?(:TestBug15599)
+        $q2 << :go
+        assert_equal [:a1], t2.value, '[Bug #15599]'
+        t1.join
+      end;
+    end
+  end
+
   def test_autoload_registered_while_loading
     Dir.mktmpdir('autoload') do |tmpdir|
       File.write("#{tmpdir}/autoload-self.rb", "#{<<~'begin;'}\n#{<<~'end;'}")
