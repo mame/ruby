@@ -2972,10 +2972,27 @@ rb_autoloading_value(VALUE mod, ID id, VALUE* value, rb_const_flag_t *flag)
     return TRUE;
 }
 
+// An autoload being loaded by an execution context, linked from
+// rb_execution_context_t#autoload_trigger.
+struct rb_autoload_trigger {
+    struct rb_autoload_trigger *prev;
+    VALUE feature;
+};
+
+// The autoload of `feature` being loaded by the current execution context, if any.
+static struct rb_autoload_trigger *
+autoload_current_trigger(VALUE feature)
+{
+    for (struct rb_autoload_trigger *t = GET_EC()->autoload_trigger; t; t = t->prev) {
+        if (t->feature == feature) return t;
+    }
+    return NULL;
+}
+
 static int
 autoload_by_current(struct autoload_data *ele)
 {
-    return ele->mutex != Qnil && rb_mutex_owned_p(ele->mutex);
+    return autoload_current_trigger(ele->feature) != NULL;
 }
 
 // If there is an autoloading constant and it has been set by the current
@@ -3078,7 +3095,7 @@ autoload_load_needed(VALUE _arguments)
         RB_OBJ_WRITE(autoload_const->autoload_data_value, &autoload_data->mutex, rb_mutex_new());
         autoload_data->fork_gen = GET_VM()->fork_gen;
     }
-    else if (rb_mutex_owned_p(autoload_data->mutex)) {
+    else if (autoload_by_current(autoload_data)) {
         return Qfalse;
     }
 
@@ -3193,12 +3210,26 @@ const_lookup_in_box(VALUE mod, ID id, const rb_box_t *box)
 }
 
 static VALUE
+autoload_trigger_pop(VALUE arg)
+{
+    GET_EC()->autoload_trigger = ((struct rb_autoload_trigger *)arg)->prev;
+    return Qnil;
+}
+
+static VALUE
 autoload_try_load(VALUE _arguments)
 {
     struct autoload_load_arguments *arguments = (struct autoload_load_arguments*)_arguments;
+    rb_execution_context_t *ec = GET_EC();
+    struct autoload_data *autoload_data = rb_check_typeddata(arguments->autoload_const->autoload_data_value, &autoload_data_type);
+    struct rb_autoload_trigger trigger = {
+        .prev = ec->autoload_trigger,
+        .feature = autoload_data->feature,
+    };
 
+    ec->autoload_trigger = &trigger;
     // Load the feature and set the constants in the box that registered the autoload:
-    VALUE result = autoload_feature_require(_arguments);
+    VALUE result = rb_ensure(autoload_feature_require, _arguments, autoload_trigger_pop, (VALUE)&trigger);
 
     // After we loaded the feature, if the constant is not defined, we remove it completely:
     rb_const_entry_t *ce = rb_const_lookup(arguments->module, arguments->name);
@@ -3472,7 +3503,7 @@ rb_const_location_from(VALUE klass, ID id, int exclude, int recurse, int visibil
                 struct autoload_const *autoload_const;
                 struct autoload_data *autoload_data = get_autoload_data(autoload_const_value, &autoload_const);
 
-                if (!UNDEF_P(autoload_const->value) && RTEST(rb_mutex_owned_p(autoload_data->mutex))) {
+                if (!UNDEF_P(autoload_const->value) && autoload_by_current(autoload_data)) {
                     return rb_assoc_new(autoload_const->file, INT2NUM(autoload_const->line));
                 }
                 file = autoload_const->autoload_call_file;

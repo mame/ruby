@@ -1142,6 +1142,9 @@ struct rb_execution_context_struct {
 #endif
     } machine;
 
+    /* innermost autoload being loaded */
+    struct rb_autoload_trigger *autoload_trigger;
+
 #ifdef RUBY_ASSERT_CRITICAL_SECTION
     int assert_critical_section_entered;
 #endif
