@@ -2675,6 +2675,9 @@ struct autoload_const {
     // Otherwise, Qnil means the root box
     VALUE box_value;
 
+    // The feature to require.
+    VALUE feature;
+
     // The file that called autoload
     VALUE autoload_call_file;
 
@@ -2746,6 +2749,7 @@ autoload_const_mark_and_move(void *ptr)
 {
     struct autoload_const *ac = ptr;
 
+    rb_gc_mark_and_move(&ac->feature);
     rb_gc_mark_and_move(&ac->autoload_call_file);
     rb_gc_mark_and_move(&ac->autoload_data_value);
     rb_gc_mark_and_move(&ac->value);
@@ -2868,6 +2872,7 @@ rb_autoload_str(VALUE module, ID name, VALUE feature)
     struct autoload_const *autoload_const;
     VALUE autoload_const_value = TypedData_Make_Struct(0, struct autoload_const, &autoload_const_type, autoload_const);
     RB_OBJ_WRITE(autoload_const_value, &autoload_const->box_value, current_box_value);
+    RB_OBJ_WRITE(autoload_const_value, &autoload_const->feature, feature);
     RB_OBJ_WRITE(autoload_const_value, &autoload_const->autoload_call_file, constant_entry->u.file);
     autoload_const->name = name;
     autoload_const->value = Qundef;
@@ -3042,9 +3047,6 @@ struct autoload_load_arguments {
     // The specific constant which triggered the autoload code to fire:
     struct autoload_const *autoload_const;
 
-    // The parent autoload data which is shared between multiple constants:
-    struct autoload_data *autoload_data;
-
     struct rb_autoload_trigger trigger;
 };
 
@@ -3105,9 +3107,6 @@ autoload_feature_require(VALUE _arguments)
     struct autoload_const *autoload_const = arguments->autoload_const;
     VALUE autoload_box_value = autoload_const->box_value;
 
-    // We save this for later use in autoload_apply_constants:
-    arguments->autoload_data = rb_check_typeddata(autoload_const->autoload_data_value, &autoload_data_type);
-
     /*
      * Clear the global cc cache table because the require method can be different from the current
      * box's one and it may cause inconsistent cc-cme states.
@@ -3116,7 +3115,7 @@ autoload_feature_require(VALUE _arguments)
      */
     rb_gccct_clear_table();
 
-    VALUE feature = arguments->autoload_data->feature;
+    VALUE feature = autoload_const->feature;
     rb_box_t *box = NULL;
     if (rb_box_available() && BOX_OBJ_P(autoload_box_value)) {
         box = rb_get_box_t(autoload_box_value);
@@ -3205,10 +3204,8 @@ autoload_try_load(VALUE _arguments)
 {
     struct autoload_load_arguments *arguments = (struct autoload_load_arguments*)_arguments;
     rb_execution_context_t *ec = GET_EC();
-    struct autoload_data *autoload_data = rb_check_typeddata(arguments->autoload_const->autoload_data_value, &autoload_data_type);
-
     arguments->trigger.prev = ec->autoload_trigger;
-    arguments->trigger.feature = autoload_data->feature;
+    arguments->trigger.feature = arguments->autoload_const->feature;
     ec->autoload_trigger = &arguments->trigger;
     // Load the feature and set the constants in the box that registered the autoload:
     VALUE result = rb_ensure(autoload_feature_require, _arguments, autoload_trigger_finish, (VALUE)&arguments->trigger);
@@ -3242,14 +3239,14 @@ autoload_try_load(VALUE _arguments)
         if (arguments->module == rb_cObject) {
             rb_warning(
                 "Expected %"PRIsVALUE" to define %"PRIsVALUE" but it didn't",
-                arguments->autoload_data->feature,
+                arguments->autoload_const->feature,
                 ID2SYM(arguments->name)
             );
         }
         else {
             rb_warning(
                 "Expected %"PRIsVALUE" to define %"PRIsVALUE"::%"PRIsVALUE" but it didn't",
-                arguments->autoload_data->feature,
+                arguments->autoload_const->feature,
                 arguments->module,
                 ID2SYM(arguments->name)
             );
@@ -3945,7 +3942,7 @@ const_tbl_update(VALUE klass, ID id, VALUE val, VALUE file, int line)
             struct autoload_data *autoload_data = autoload_const_value ? get_autoload_data(autoload_const_value, &ac) : NULL;
             struct rb_autoload_trigger *trigger = NULL;
 
-            if (autoload_data && !UNDEF_P(val) && (trigger = autoload_current_trigger(autoload_data->feature))) {
+            if (autoload_data && !UNDEF_P(val) && (trigger = autoload_current_trigger(ac->feature))) {
                 /* keep the value until the autoload finishes */
                 if (UNDEF_P(ac->value)) {
                     if (!trigger->assigned) trigger->assigned = rb_ary_hidden_new(2);
