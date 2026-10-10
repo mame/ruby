@@ -205,7 +205,12 @@ describe "Module#autoload" do
     filename = fixture(__FILE__, "autoload_during_require_current_file.rb")
     require filename
 
-    ScratchPad.recorded.should == nil
+    ruby_version_is ""..."4.1" do
+      ScratchPad.recorded.should == nil
+    end
+    ruby_version_is "4.1" do
+      ScratchPad.recorded.should == filename
+    end
   end
 
   describe "interacting with defined?" do
@@ -259,7 +264,12 @@ describe "Module#autoload" do
     it "with a full path" do
       @check.call.should == ["constant", @path]
       require @path
-      ScratchPad.recorded.should == [nil, nil]
+      ruby_version_is ""..."4.1" do
+        ScratchPad.recorded.should == [nil, nil]
+      end
+      ruby_version_is "4.1" do
+        ScratchPad.recorded.should == [nil, @path]
+      end
       @check.call.should == ["constant", nil]
     end
 
@@ -271,7 +281,12 @@ describe "Module#autoload" do
       ensure
         $:.pop
       end
-      ScratchPad.recorded.should == [nil, nil]
+      ruby_version_is ""..."4.1" do
+        ScratchPad.recorded.should == [nil, nil]
+      end
+      ruby_version_is "4.1" do
+        ScratchPad.recorded.should == [nil, @path]
+      end
       @check.call.should == ["constant", nil]
     end
 
@@ -289,7 +304,12 @@ describe "Module#autoload" do
 
       @check.call.should == ["constant", @path]
       require @path
-      ScratchPad.recorded.should == [nil, nil]
+      ruby_version_is ""..."4.1" do
+        ScratchPad.recorded.should == [nil, nil]
+      end
+      ruby_version_is "4.1" do
+        ScratchPad.recorded.should == [nil, @path]
+      end
       @check.call.should == ["constant", nil]
     end
 
@@ -315,8 +335,14 @@ describe "Module#autoload" do
       ensure
         $:.pop
       end
-      ScratchPad.recorded.should == [nil, true, false, nil]
-      @check.call.should == [nil, true, false, nil]
+      ruby_version_is ""..."4.1" do
+        ScratchPad.recorded.should == [nil, true, false, nil]
+        @check.call.should == [nil, true, false, nil]
+      end
+      ruby_version_is "4.1" do
+        ScratchPad.recorded.should == [nil, true, false, @path]
+        @check.call.should == [nil, true, false, @path]
+      end
     end
   end
 
@@ -394,11 +420,22 @@ describe "Module#autoload" do
       results.should == [true, false, true, true]
     end
 
-    it "returns nil in autoload thread and returns the path in other threads for Module#autoload?" do
-      results = check_before_during_thread_after(:DuringAutoload) {
-        ModuleSpecs::Autoload.autoload?(:DuringAutoload)
-      }
-      results.should == [@path, nil, @path, nil]
+    ruby_version_is ""..."4.1" do
+      it "returns nil in autoload thread and returns the path in other threads for Module#autoload?" do
+        results = check_before_during_thread_after(:DuringAutoload) {
+          ModuleSpecs::Autoload.autoload?(:DuringAutoload)
+        }
+        results.should == [@path, nil, @path, nil]
+      end
+    end
+
+    ruby_version_is "4.1" do
+      it "returns the path in both threads for Module#autoload?" do
+        results = check_before_during_thread_after(:DuringAutoload) {
+          ModuleSpecs::Autoload.autoload?(:DuringAutoload)
+        }
+        results.should == [@path, @path, @path, nil]
+      end
     end
   end
 
@@ -433,11 +470,22 @@ describe "Module#autoload" do
       results.should == [true, true, true, true]
     end
 
-    it "returns nil in autoload thread and returns the path in other threads for Module#autoload?" do
-      results = check_before_during_thread_after(:DuringAutoloadAfterDefine) {
-        ModuleSpecs::Autoload.autoload?(:DuringAutoloadAfterDefine)
-      }
-      results.should == [@path, nil, @path, nil]
+    ruby_version_is ""..."4.1" do
+      it "returns nil in autoload thread and returns the path in other threads for Module#autoload?" do
+        results = check_before_during_thread_after(:DuringAutoloadAfterDefine) {
+          ModuleSpecs::Autoload.autoload?(:DuringAutoloadAfterDefine)
+        }
+        results.should == [@path, nil, @path, nil]
+      end
+    end
+
+    ruby_version_is "4.1" do
+      it "returns nil in both threads for Module#autoload?" do
+        results = check_before_during_thread_after(:DuringAutoloadAfterDefine) {
+          ModuleSpecs::Autoload.autoload?(:DuringAutoloadAfterDefine)
+        }
+        results.should == [@path, nil, nil, nil]
+      end
     end
 
     ruby_bug("#20188", ""..."3.4") do

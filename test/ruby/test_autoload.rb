@@ -795,6 +795,24 @@ p Foo::Bar
     end
   end
 
+  def test_autoload_p_while_loading_the_feature
+    Dir.mktmpdir('autoload') do |tmpdir|
+      path = "#{tmpdir}/autoload-self.rb"
+      File.write(path, "#{<<~'begin;'}\n#{<<~'end;'}")
+      begin;
+        Object.autoload(:AutoloadSelf, __FILE__)
+        $result = Object.autoload?(:AutoloadSelf)
+        AutoloadSelf = 1
+      end;
+      assert_separately(%W[-I #{tmpdir}], "#{<<-"begin;"}\n#{<<-"end;"}")
+      begin;
+        require #{path.dump}
+        assert_equal #{path.dump}, $result
+        assert_nil Object.autoload?(:AutoloadSelf)
+      end;
+    end
+  end
+
   def test_autoload_joining_thread_while_required_directly
     Dir.mktmpdir('autoload') do |tmpdir|
       File.write("#{tmpdir}/autoload-join.rb", "#{<<~'begin;'}\n#{<<~'end;'}")

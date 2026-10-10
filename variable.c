@@ -3127,17 +3127,12 @@ rb_autoload_at_p(VALUE mod, ID id, int recur)
     struct autoload_const *ac;
 
     while (!(load = autoload_entry(mod, id))) {
-        // Assigned while another execution context autoloads it:
-        VALUE assigned = autoload_assigned_entry(mod, id);
-        if (assigned && !rb_mutex_owned_p(get_autoload_assigned(assigned)->mutex)) {
-            return get_autoload_const(get_autoload_assigned(assigned)->autoload)->feature;
-        }
         if (!recur) return Qnil;
         mod = RCLASS_SUPER(mod);
         if (!mod) return Qnil;
     }
     ac = get_autoload_const(load);
-    return autoload_available_p(mod, id, ac) ? ac->feature : Qnil;
+    return ac->feature;
 }
 
 void
