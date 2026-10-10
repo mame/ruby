@@ -2798,6 +2798,18 @@ get_autoload_data(VALUE autoload_const_value, struct autoload_const **autoload_c
     return autoload_data;
 }
 
+static struct autoload_const *
+get_autoload_const(VALUE autoload_const_value)
+{
+    return rb_check_typeddata(autoload_const_value, &autoload_const_type);
+}
+
+static bool
+autoload_assigned_p(const struct autoload_const *ac)
+{
+    return !UNDEF_P(ac->value);
+}
+
 // The autoload entry of the constant `id` of `mod`, or 0.
 static VALUE
 autoload_entry(VALUE mod, ID id)
@@ -2911,48 +2923,20 @@ autoload_delete(VALUE autoload_const_value)
     RUBY_ASSERT_CRITICAL_SECTION_LEAVE();
 }
 
-static int
-autoload_by_someone_else(struct autoload_data *ele)
+static struct rb_autoload_trigger *autoload_current_trigger(VALUE feature);
+
+// Whether referencing the autoload constant is expected to give a value. The feature
+// is judged only by its name, without resolving it as require does.
+static bool
+autoload_available_p(const struct autoload_const *ac)
 {
-    return ele->mutex != Qnil && RTEST(rb_mutex_locked_p(ele->mutex)) && !rb_mutex_owned_p(ele->mutex);
-}
+    const char *loading = 0;
 
-static VALUE
-check_autoload_required(VALUE mod, ID id, const char **loadingpath)
-{
-    VALUE autoload_const_value = autoload_entry(mod, id);
-    struct autoload_data *autoload_data;
-    const char *loading;
-
-    if (!autoload_const_value || !(autoload_data = get_autoload_data(autoload_const_value, 0))) {
-        return 0;
-    }
-
-    loading = RSTRING_PTR(autoload_data->feature);
-    int provided = rb_feature_provided(loading, &loading);
-
-    /*
-     * if somebody else is autoloading, we MUST wait for them, since
-     * rb_provide_feature can provide a feature before autoload_const_set
-     * completes.  We must wait until autoload_const_set finishes in
-     * the other thread.
-     */
-    if (autoload_by_someone_else(autoload_data) &&
-        !(loading && rb_require_circular_p(autoload_data->feature, false))) {
-        return autoload_const_value;
-    }
-
-    if (!provided) {
-        return autoload_const_value;
-    }
-
-    // Require it even if provided, unless it is circular:
-    if (loadingpath) {
-        *loadingpath = loading;
-        return autoload_const_value;
-    }
-
-    return 0;
+    if (autoload_assigned_p(ac)) return true;
+    if (autoload_current_trigger(ac->feature)) return false;
+    // Provided already, or being loaded and circular:
+    return !(rb_feature_provided(RSTRING_PTR(ac->feature), &loading) &&
+             (!loading || rb_require_circular_p(ac->feature, false)));
 }
 
 static struct autoload_const *autoloading_const_entry(VALUE mod, ID id);
@@ -3057,25 +3041,22 @@ autoload_load_needed(VALUE _arguments)
 {
     struct autoload_load_arguments *arguments = (struct autoload_load_arguments*)_arguments;
 
-    const char *loading = 0;
-
     if (!autoload_defined_p(arguments->module, arguments->name)) {
         return Qfalse;
     }
 
-    VALUE autoload_const_value = check_autoload_required(arguments->module, arguments->name, &loading);
+    VALUE autoload_const_value = autoload_entry(arguments->module, arguments->name);
     if (!autoload_const_value) {
         return Qfalse;
     }
 
     struct autoload_const *autoload_const;
-    struct autoload_data *autoload_data;
-    if (!(autoload_data = get_autoload_data(autoload_const_value, &autoload_const))) {
-        return Qfalse;
-    }
+    struct autoload_data *autoload_data = get_autoload_data(autoload_const_value, &autoload_const);
 
-    // Requiring the feature would be a circular require:
-    if (loading && rb_require_circular_p(autoload_data->feature, true)) {
+    // Wait for the execution context which assigned it, or require the feature:
+    if (!autoload_assigned_p(autoload_const) &&
+        (autoload_current_trigger(autoload_const->feature) ||
+         rb_require_circular_p(autoload_const->feature, true))) {
         return Qfalse;
     }
 
@@ -3304,16 +3285,17 @@ VALUE
 rb_autoload_at_p(VALUE mod, ID id, int recur)
 {
     VALUE load;
-    struct autoload_data *ele;
+    struct autoload_const *ac;
 
     while (!autoload_defined_p(mod, id)) {
         if (!recur) return Qnil;
         mod = RCLASS_SUPER(mod);
         if (!mod) return Qnil;
     }
-    load = check_autoload_required(mod, id, 0);
+    load = autoload_entry(mod, id);
     if (!load) return Qnil;
-    return (ele = get_autoload_data(load, 0)) ? ele->feature : Qnil;
+    ac = get_autoload_const(load);
+    return autoload_available_p(ac) ? ac->feature : Qnil;
 }
 
 void
@@ -3732,9 +3714,11 @@ rb_const_defined_0(VALUE klass, ID id, int exclude, int recurse, int visibility)
             if (visibility && RB_CONST_PRIVATE_P(ce)) {
                 return (int)Qfalse;
             }
-            if (UNDEF_P(ce->value) && !check_autoload_required(tmp, id, 0) &&
-                !rb_autoloading_value(tmp, id, NULL, NULL))
-                return (int)Qfalse;
+            if (UNDEF_P(ce->value)) {
+                VALUE load = autoload_entry(tmp, id);
+                if (!load || !autoload_available_p(get_autoload_const(load)))
+                    return (int)Qfalse;
+            }
 
             if (exclude && tmp == rb_cObject && klass != rb_cObject) {
                 return (int)Qfalse;
