@@ -14,6 +14,7 @@
 VALUE rb_get_expanded_load_path(rb_len_t *maxlen);
 VALUE rb_load_entrypoint(VALUE fname, VALUE wrap);
 VALUE rb_require_relative_entrypoint(VALUE fname);
+bool rb_require_circular_p(VALUE fname, bool resolve);
 int rb_require_internal(VALUE fname);
 NORETURN(void rb_load_fail(VALUE, const char*));
 

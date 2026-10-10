@@ -1243,6 +1243,34 @@ search_required(const rb_box_t *box, VALUE fname, volatile VALUE *path, feature_
     return ft;
 }
 
+static bool
+loading_by_current_p(const rb_box_t *box, const char *path)
+{
+    st_data_t data;
+    return st_lookup(box->loading_table, (st_data_t)path, &data) && rb_thread_shield_owned((VALUE)data);
+}
+
+/*
+ * Whether requiring +fname+ now would be a circular require of the current execution
+ * context. Unless +resolve+, it is judged only by the name, which may match a file
+ * being loaded that require would not load.
+ */
+bool
+rb_require_circular_p(VALUE fname, bool resolve)
+{
+    const rb_box_t *box = rb_current_box();
+    const char *loading = 0;
+    volatile VALUE path = 0;
+
+    if (!feature_provided((rb_box_t *)box, RSTRING_PTR(fname), &loading) || !loading) return false;
+    if (!loading_by_current_p(box, loading)) return false;
+    if (!resolve) return true;
+
+    /* Resolve it as require does, since the name may refer to another file. */
+    if (!search_required(box, rb_str_encode_ospath(fname), &path, rb_feature_p)) return false;
+    return path && loading_by_current_p(box, RSTRING_PTR(path));
+}
+
 static void
 load_failed(VALUE fname)
 {

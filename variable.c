@@ -27,6 +27,7 @@
 #include "internal/eval.h"
 #include "eval_intern.h"
 #include "internal/hash.h"
+#include "internal/load.h"
 #include "internal/object.h"
 #include "internal/gc.h"
 #include "internal/re.h"
@@ -3055,7 +3056,7 @@ autoload_load_needed(VALUE _arguments)
 {
     struct autoload_load_arguments *arguments = (struct autoload_load_arguments*)_arguments;
 
-    const char *loading = 0, *src;
+    const char *loading = 0;
 
     if (!autoload_defined_p(arguments->module, arguments->name)) {
         return Qfalse;
@@ -3066,14 +3067,14 @@ autoload_load_needed(VALUE _arguments)
         return Qfalse;
     }
 
-    src = rb_sourcefile();
-    if (src && loading && strcmp(src, loading) == 0) {
-        return Qfalse;
-    }
-
     struct autoload_const *autoload_const;
     struct autoload_data *autoload_data;
     if (!(autoload_data = get_autoload_data(autoload_const_value, &autoload_const))) {
+        return Qfalse;
+    }
+
+    // Requiring the feature would be a circular require:
+    if (loading && rb_require_circular_p(autoload_data->feature, true)) {
         return Qfalse;
     }
 

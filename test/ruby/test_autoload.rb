@@ -709,6 +709,49 @@ p Foo::Bar
     end
   end
 
+  def test_autoload_registered_while_loading
+    Dir.mktmpdir('autoload') do |tmpdir|
+      File.write("#{tmpdir}/autoload-self.rb", "#{<<~'begin;'}\n#{<<~'end;'}")
+      begin;
+        autoload :AutoloadSelf, __FILE__
+        require 'autoload-self-ref'
+        class AutoloadSelf; end
+      end;
+      File.write("#{tmpdir}/autoload-self-ref.rb", "#{<<~'begin;'}\n#{<<~'end;'}")
+      begin;
+        $error = (AutoloadSelf rescue $!)
+        $defined = Object.const_defined?(:AutoloadSelf)
+        $listed = Object.constants.include?(:AutoloadSelf)
+      end;
+      assert_separately(%W[-W -I #{tmpdir}], "#{<<-'begin;'}\n#{<<-'end;'}")
+      begin;
+        assert_warning('') { require 'autoload-self' }
+        assert_kind_of NameError, $error
+        assert_false $defined
+        assert_true $listed
+        assert_instance_of Class, AutoloadSelf
+      end;
+    end
+  end
+
+  def test_autoload_relative_feature_while_loading_another_file
+    Dir.mktmpdir('autoload') do |tmpdir|
+      Dir.mkdir("#{tmpdir}/a")
+      Dir.mkdir("#{tmpdir}/b")
+      File.write("#{tmpdir}/a/autoload-shadow.rb", "AutoloadShadow = :a\n")
+      File.write("#{tmpdir}/b/autoload-shadow.rb", "#{<<~'begin;'}\n#{<<~'end;'}")
+      begin;
+        autoload :AutoloadShadow, 'autoload-shadow'
+        $value = AutoloadShadow
+      end;
+      assert_separately(%W[-I #{tmpdir}/a -I #{tmpdir}/b], "#{<<-"begin;"}\n#{<<-"end;"}")
+      begin;
+        require #{"#{tmpdir}/b/autoload-shadow.rb".dump}
+        assert_equal :a, $value
+      end;
+    end
+  end
+
   def test_autoload_joining_thread_while_required_directly
     Dir.mktmpdir('autoload') do |tmpdir|
       File.write("#{tmpdir}/autoload-join.rb", "#{<<~'begin;'}\n#{<<~'end;'}")
