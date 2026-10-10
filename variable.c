@@ -14,7 +14,6 @@
 #include "ruby/internal/config.h"
 #include <stddef.h>
 #include "ruby/internal/stdbool.h"
-#include "ccan/list/list.h"
 #include "constant.h"
 #include "debug_counter.h"
 #include "id.h"
@@ -54,11 +53,6 @@ typedef void rb_gvar_compact_t(void *var);
 
 static struct rb_id_table *rb_global_tbl;
 
-// This hash table maps file paths to loadable features. We use this to track
-// autoload state until it's no longer needed.
-// feature (file path) => struct autoload_data
-static VALUE autoload_features;
-
 static void check_before_mod_set(VALUE, ID, VALUE, const char *);
 static void setup_const_entry(rb_const_entry_t *, VALUE, VALUE, rb_const_flag_t);
 static VALUE rb_const_search(VALUE klass, ID id, int exclude, int recurse, int visibility, VALUE *found_in);
@@ -85,10 +79,6 @@ Init_var_tables(void)
 {
     rb_global_tbl = rb_id_table_create(0);
     generic_fields_tbl_ = st_init_numtable();
-
-    autoload_features = rb_ident_hash_new();
-    rb_obj_hide(autoload_features);
-    rb_vm_register_global_object(autoload_features);
 }
 
 static inline bool
@@ -2664,14 +2654,11 @@ rb_mod_const_missing(VALUE klass, VALUE name)
     UNREACHABLE_RETURN(Qnil);
 }
 
-// Every autoload constant has exactly one instance of autoload_const, stored in `autoload_features`. Since multiple autoload constants can refer to the same file, every `autoload_const` refers to a de-duplicated `autoload_data`.
+// An autoload entry: `name` is declared to be provided by `feature`. The constant
+// entry holds Qundef as its value and this as its file. A value assigned while the
+// autoload is being loaded is kept here, visible only to the loading execution
+// context until it finishes.
 struct autoload_const {
-    // The linked list node of all constants which are loaded by the related autoload feature.
-    struct ccan_list_node cnode; /* <=> autoload_data.constants */
-
-    // The shared "autoload_data" if multiple constants are defined from the same feature.
-    VALUE autoload_data_value;
-
     // The box object when the autoload is called in a user box
     // Otherwise, Qnil means the root box
     VALUE box_value;
@@ -2685,10 +2672,10 @@ struct autoload_const {
     // The name of the constant we are loading.
     ID name;
 
-    // The value of the constant (after it's loaded).
+    // The value assigned while loading (Qundef if none).
     VALUE value;
 
-    // The constant entry flags which need to be re-applied after autoloading the feature.
+    // The constant entry flags which need to be re-applied after loading.
     rb_const_flag_t flag;
 
     // The source file and line number that defined this constant (different from feature path).
@@ -2699,48 +2686,6 @@ struct autoload_const {
     VALUE mutex;
 };
 
-// Each `autoload_data` uniquely represents a specific feature which can be loaded, and a list of constants which it is able to define. We use a mutex to coordinate multiple threads trying to load the same feature.
-struct autoload_data {
-    // The feature path to require to load this constant.
-    VALUE feature;
-
-    // The linked list of all constants that are going to be loaded by this autoload.
-    struct ccan_list_head constants; /* <=> autoload_const.cnode */
-};
-
-static void
-autoload_data_mark_and_move(void *ptr)
-{
-    struct autoload_data *p = ptr;
-
-    rb_gc_mark_and_move(&p->feature);
-}
-
-static void
-autoload_data_free(void *ptr)
-{
-    struct autoload_data *p = ptr;
-
-    struct autoload_const *autoload_const, *next;
-    ccan_list_for_each_safe(&p->constants, autoload_const, next, cnode) {
-        ccan_list_del_init(&autoload_const->cnode);
-    }
-
-    SIZED_FREE(p);
-}
-
-static size_t
-autoload_data_memsize(const void *ptr)
-{
-    return sizeof(struct autoload_data);
-}
-
-static const rb_data_type_t autoload_data_type = {
-    "autoload_data",
-    {autoload_data_mark_and_move, autoload_data_free, autoload_data_memsize, autoload_data_mark_and_move},
-    0, 0, RUBY_TYPED_FREE_IMMEDIATELY | RUBY_TYPED_WB_PROTECTED
-};
-
 static void
 autoload_const_mark_and_move(void *ptr)
 {
@@ -2748,7 +2693,6 @@ autoload_const_mark_and_move(void *ptr)
 
     rb_gc_mark_and_move(&ac->feature);
     rb_gc_mark_and_move(&ac->autoload_call_file);
-    rb_gc_mark_and_move(&ac->autoload_data_value);
     rb_gc_mark_and_move(&ac->value);
     rb_gc_mark_and_move(&ac->file);
     rb_gc_mark_and_move(&ac->box_value);
@@ -2764,10 +2708,7 @@ autoload_const_memsize(const void *ptr)
 static void
 autoload_const_free(void *ptr)
 {
-    struct autoload_const *autoload_const = ptr;
-
-    ccan_list_del(&autoload_const->cnode);
-    SIZED_FREE(autoload_const);
+    SIZED_FREE((struct autoload_const *)ptr);
 }
 
 static const rb_data_type_t autoload_const_type = {
@@ -2775,19 +2716,6 @@ static const rb_data_type_t autoload_const_type = {
     {autoload_const_mark_and_move, autoload_const_free, autoload_const_memsize, autoload_const_mark_and_move,},
     0, 0, RUBY_TYPED_FREE_IMMEDIATELY | RUBY_TYPED_WB_PROTECTED
 };
-
-static struct autoload_data *
-get_autoload_data(VALUE autoload_const_value, struct autoload_const **autoload_const_pointer)
-{
-    struct autoload_const *autoload_const = rb_check_typeddata(autoload_const_value, &autoload_const_type);
-
-    VALUE autoload_data_value = autoload_const->autoload_data_value;
-    struct autoload_data *autoload_data = rb_check_typeddata(autoload_data_value, &autoload_data_type);
-
-    if (autoload_const_pointer) *autoload_const_pointer = autoload_const;
-
-    return autoload_data;
-}
 
 static struct autoload_const *
 get_autoload_const(VALUE autoload_const_value)
@@ -2821,31 +2749,6 @@ autoload_entry(VALUE mod, ID id)
 static void const_set(VALUE klass, ID id, VALUE val);
 static void const_added(VALUE klass, ID const_name);
 
-static VALUE
-autoload_feature_lookup_or_create(VALUE feature, struct autoload_data **autoload_data_pointer)
-{
-    RUBY_ASSERT_CRITICAL_SECTION_ENTER();
-
-    VALUE autoload_data_value = rb_hash_aref(autoload_features, feature);
-    struct autoload_data *autoload_data;
-
-    if (NIL_P(autoload_data_value)) {
-        autoload_data_value = TypedData_Make_Struct(0, struct autoload_data, &autoload_data_type, autoload_data);
-        RB_OBJ_WRITE(autoload_data_value, &autoload_data->feature, feature);
-        ccan_list_head_init(&autoload_data->constants);
-
-        if (autoload_data_pointer) *autoload_data_pointer = autoload_data;
-
-        rb_hash_aset(autoload_features, feature, autoload_data_value);
-    }
-    else if (autoload_data_pointer) {
-        *autoload_data_pointer = rb_check_typeddata(autoload_data_value, &autoload_data_type);
-    }
-
-    RUBY_ASSERT_CRITICAL_SECTION_LEAVE();
-    return autoload_data_value;
-}
-
 void
 rb_autoload_str(VALUE module, ID name, VALUE feature)
 {
@@ -2875,9 +2778,6 @@ rb_autoload_str(VALUE module, ID name, VALUE feature)
     // Ensure the string is uniqued since we use an identity lookup:
     feature = rb_fstring(feature);
 
-    struct autoload_data *autoload_data;
-    VALUE autoload_data_value = autoload_feature_lookup_or_create(feature, &autoload_data);
-
     struct autoload_const *autoload_const;
     VALUE autoload_const_value = TypedData_Make_Struct(0, struct autoload_const, &autoload_const_type, autoload_const);
     RB_OBJ_WRITE(autoload_const_value, &autoload_const->box_value, current_box_value);
@@ -2888,37 +2788,9 @@ rb_autoload_str(VALUE module, ID name, VALUE feature)
     autoload_const->flag = CONST_PUBLIC;
     autoload_const->file = Qnil;
     autoload_const->mutex = Qnil;
-    RB_OBJ_WRITE(autoload_const_value, &autoload_const->autoload_data_value, autoload_data_value);
-    ccan_list_add_tail(&autoload_data->constants, &autoload_const->cnode);
     RB_OBJ_WRITE(module, &constant_entry->u.autoload_const, autoload_const_value);
 
     const_added(module, name);
-}
-
-static void
-autoload_delete(VALUE autoload_const_value)
-{
-    RUBY_ASSERT_CRITICAL_SECTION_ENTER();
-
-    VM_ASSERT(rb_typeddata_is_kind_of(autoload_const_value, &autoload_const_type));
-
-    struct autoload_const *autoload_const;
-    struct autoload_data *autoload_data = get_autoload_data(autoload_const_value, &autoload_const);
-
-    VM_ASSERT(autoload_data);
-
-    /*
-     * we must delete here to avoid "already initialized" warnings
-     * with parallel autoload.  Using list_del_init here so list_del
-     * works in autoload_const_free
-     */
-    ccan_list_del_init(&autoload_const->cnode);
-
-    if (ccan_list_empty(&autoload_data->constants)) {
-        rb_hash_delete(autoload_features, autoload_data->feature);
-    }
-
-    RUBY_ASSERT_CRITICAL_SECTION_LEAVE();
 }
 
 static struct rb_autoload_trigger *autoload_current_trigger(VALUE feature);
@@ -3096,7 +2968,6 @@ autoload_trigger_finish(VALUE arg)
         }
 
         RB_VM_LOCKING() {
-            autoload_delete(autoload_const_value);
             ce->flag = ac->flag | (ce->flag & (CONST_DEPRECATED | CONST_VISIBILITY_MASK));
             RB_OBJ_WRITE(module, &ce->value, ac->value);
             RB_OBJ_WRITE(module, &ce->u.file, ac->file);
@@ -3500,10 +3371,7 @@ rb_const_remove(VALUE mod, ID id)
 
     val = ce->value;
 
-    if (UNDEF_P(val)) {
-        autoload_delete(ce->u.autoload_const);
-        val = Qnil;
-    }
+    if (UNDEF_P(val)) val = Qnil;
 
     if (ce != const_lookup(RCLASS_PRIME_CONST_TBL(mod), id)) {
         SIZED_FREE(ce);
@@ -3870,7 +3738,6 @@ const_tbl_update(VALUE klass, ID id, VALUE val, VALUE file, int line)
             }
             else {
                 /* otherwise autoloaded constant, allow to override */
-                autoload_delete(ce->u.autoload_const);
                 ce->flag = visibility;
                 RB_OBJ_WRITE(klass, &ce->value, val);
                 RB_OBJ_WRITE(klass, &ce->u.file, file);
