@@ -2654,10 +2654,12 @@ rb_mod_const_missing(VALUE klass, VALUE name)
     UNREACHABLE_RETURN(Qnil);
 }
 
-// An autoload entry: `name` is declared to be provided by `feature`. The constant
-// entry holds Qundef as its value and this as its file. A value assigned while the
-// autoload is being loaded is kept here, visible only to the loading execution
-// context until it finishes.
+// The constant entry of an autoload constant holds Qundef as its value, and one of
+// these as its file:
+//
+// - autoload_const: the constant is declared to be provided by `feature`.
+// - autoload_assigned: a value assigned while an execution context autoloads the
+//   constant, visible only to it until the autoload finishes.
 struct autoload_const {
     // The box object when the autoload is called in a user box
     // Otherwise, Qnil means the root box
@@ -2668,22 +2670,25 @@ struct autoload_const {
 
     // The file that called autoload
     VALUE autoload_call_file;
+};
 
-    // The name of the constant we are loading.
+struct autoload_assigned {
+    // The name of the constant.
     ID name;
 
-    // The value assigned while loading (Qundef if none).
+    // The value assigned, and the source file and line number that assigned it.
     VALUE value;
+    VALUE file;
+    int line;
 
     // The constant entry flags which need to be re-applied after loading.
     rb_const_flag_t flag;
 
-    // The source file and line number that defined this constant (different from feature path).
-    VALUE file;
-    int line;
-
-    // The mutex held by the execution context loading the autoload which assigned `value`.
+    // The mutex held by the execution context autoloading the constant.
     VALUE mutex;
+
+    // The autoload_const to restore if the autoload fails.
+    VALUE autoload;
 };
 
 static void
@@ -2693,10 +2698,7 @@ autoload_const_mark_and_move(void *ptr)
 
     rb_gc_mark_and_move(&ac->feature);
     rb_gc_mark_and_move(&ac->autoload_call_file);
-    rb_gc_mark_and_move(&ac->value);
-    rb_gc_mark_and_move(&ac->file);
     rb_gc_mark_and_move(&ac->box_value);
-    rb_gc_mark_and_move(&ac->mutex);
 }
 
 static size_t
@@ -2717,34 +2719,69 @@ static const rb_data_type_t autoload_const_type = {
     0, 0, RUBY_TYPED_FREE_IMMEDIATELY | RUBY_TYPED_WB_PROTECTED
 };
 
+static void
+autoload_assigned_mark_and_move(void *ptr)
+{
+    struct autoload_assigned *aa = ptr;
+
+    rb_gc_mark_and_move(&aa->value);
+    rb_gc_mark_and_move(&aa->file);
+    rb_gc_mark_and_move(&aa->mutex);
+    rb_gc_mark_and_move(&aa->autoload);
+}
+
+static size_t
+autoload_assigned_memsize(const void *ptr)
+{
+    return sizeof(struct autoload_assigned);
+}
+
+static void
+autoload_assigned_free(void *ptr)
+{
+    SIZED_FREE((struct autoload_assigned *)ptr);
+}
+
+static const rb_data_type_t autoload_assigned_type = {
+    "autoload_assigned",
+    {autoload_assigned_mark_and_move, autoload_assigned_free, autoload_assigned_memsize, autoload_assigned_mark_and_move,},
+    0, 0, RUBY_TYPED_FREE_IMMEDIATELY | RUBY_TYPED_WB_PROTECTED
+};
+
 static struct autoload_const *
 get_autoload_const(VALUE autoload_const_value)
 {
     return rb_check_typeddata(autoload_const_value, &autoload_const_type);
 }
 
-static bool
-autoload_assigned_p(const struct autoload_const *ac)
+static struct autoload_assigned *
+get_autoload_assigned(VALUE autoload_assigned_value)
 {
-    return !UNDEF_P(ac->value);
+    return rb_check_typeddata(autoload_assigned_value, &autoload_assigned_type);
 }
 
-static bool
-autoload_assigned_by_current_p(const struct autoload_const *ac)
-{
-    return autoload_assigned_p(ac) && rb_mutex_owned_p(ac->mutex);
-}
-
-// The autoload entry of the constant `id` of `mod`, or 0.
+// The file of the constant entry `id` of `mod` if it is of `type`, or 0.
 static VALUE
-autoload_entry(VALUE mod, ID id)
+autoload_entry_of(VALUE mod, ID id, const rb_data_type_t *type)
 {
     rb_const_entry_t *ce = rb_const_lookup(mod, id);
-    if (!ce || !UNDEF_P(ce->value)) return 0;
-    VM_ASSERT(rb_typeddata_is_kind_of(ce->u.autoload_const, &autoload_const_type));
+    if (!ce || !UNDEF_P(ce->value) || !rb_typeddata_is_kind_of(ce->u.autoload_const, type)) return 0;
     return ce->u.autoload_const;
 }
 
+// The autoload_const of the constant `id` of `mod`, or 0.
+static VALUE
+autoload_entry(VALUE mod, ID id)
+{
+    return autoload_entry_of(mod, id, &autoload_const_type);
+}
+
+// The autoload_assigned of the constant `id` of `mod`, or 0.
+static VALUE
+autoload_assigned_entry(VALUE mod, ID id)
+{
+    return autoload_entry_of(mod, id, &autoload_assigned_type);
+}
 
 static void const_set(VALUE klass, ID id, VALUE val);
 static void const_added(VALUE klass, ID const_name);
@@ -2783,46 +2820,75 @@ rb_autoload_str(VALUE module, ID name, VALUE feature)
     RB_OBJ_WRITE(autoload_const_value, &autoload_const->box_value, current_box_value);
     RB_OBJ_WRITE(autoload_const_value, &autoload_const->feature, feature);
     RB_OBJ_WRITE(autoload_const_value, &autoload_const->autoload_call_file, constant_entry->u.file);
-    autoload_const->name = name;
-    autoload_const->value = Qundef;
-    autoload_const->flag = CONST_PUBLIC;
-    autoload_const->file = Qnil;
-    autoload_const->mutex = Qnil;
     RB_OBJ_WRITE(module, &constant_entry->u.autoload_const, autoload_const_value);
 
     const_added(module, name);
 }
 
 static struct rb_autoload_trigger *autoload_current_trigger(VALUE feature);
+static rb_const_entry_t *const_lookup(struct rb_id_table *tbl, ID id);
+
+// The box in which the feature of the autoload is required.
+static const rb_box_t *
+autoload_box(const struct autoload_const *ac)
+{
+    if (rb_box_available() && BOX_OBJ_P(ac->box_value)) {
+        const rb_box_t *box = rb_get_box_t(ac->box_value);
+        if (box->top_self) return box;
+    }
+    return rb_current_box();
+}
+
+// The constant entry `id` of `mod` in the view of `box`.
+static rb_const_entry_t *
+const_lookup_in_box(VALUE mod, ID id, const rb_box_t *box)
+{
+    return const_lookup(RCLASSEXT_CONST_TBL(RCLASS_EXT_READABLE_IN_BOX(mod, box)), id);
+}
 
 // Whether referencing the autoload constant is expected to give a value. The feature
 // is judged only by its name, without resolving it as require does.
 static bool
-autoload_available_p(const struct autoload_const *ac)
+autoload_available_p(VALUE mod, ID id, const struct autoload_const *ac)
 {
     const char *loading = 0;
+    rb_const_entry_t *ce;
 
-    if (autoload_assigned_p(ac)) return true;
     if (autoload_current_trigger(ac->feature)) return false;
+    // Defined in the view of the box which loads it:
+    if ((ce = const_lookup_in_box(mod, id, autoload_box(ac))) && !UNDEF_P(ce->value)) return true;
     // Provided already, or being loaded and circular:
     return !(rb_feature_provided(RSTRING_PTR(ac->feature), &loading) &&
              (!loading || rb_require_circular_p(ac->feature, false)));
 }
 
-static struct autoload_const *autoloading_const_entry(VALUE mod, ID id);
+// Set the value of the constant entry of an autoload.
+static void
+autoload_set_value(VALUE module, ID name, rb_const_entry_t *ce, VALUE value, VALUE file, int line, rb_const_flag_t flag)
+{
+    RB_VM_LOCKING() {
+        ce->flag = flag | (ce->flag & (CONST_DEPRECATED | CONST_VISIBILITY_MASK));
+        RB_OBJ_WRITE(module, &ce->value, value);
+        RB_OBJ_WRITE(module, &ce->u.file, file);
+        ce->line = line;
+        rb_clear_constant_cache_for_id(name);
+    }
+}
+
+static struct autoload_assigned *autoloading_const_entry(VALUE mod, ID id);
 
 int
 rb_autoloading_value(VALUE mod, ID id, VALUE* value, rb_const_flag_t *flag)
 {
-    struct autoload_const *ac = autoloading_const_entry(mod, id);
-    if (!ac) return FALSE;
+    struct autoload_assigned *aa = autoloading_const_entry(mod, id);
+    if (!aa) return FALSE;
 
     if (value) {
-        *value = ac->value;
+        *value = aa->value;
     }
 
     if (flag) {
-        *flag = ac->flag;
+        *flag = aa->flag;
     }
 
     return TRUE;
@@ -2831,29 +2897,14 @@ rb_autoloading_value(VALUE mod, ID id, VALUE* value, rb_const_flag_t *flag)
 // If there is an autoloading constant and it has been set by the current
 // execution context, return it. This allows threads which are loading code to
 // refer to their own autoloaded constants.
-static struct autoload_const *
+static struct autoload_assigned *
 autoloading_const_entry(VALUE mod, ID id)
 {
-    VALUE load = autoload_entry(mod, id);
-    if (!load) return 0;
+    VALUE assigned = autoload_assigned_entry(mod, id);
+    if (!assigned) return 0;
 
-    struct autoload_const *ac = get_autoload_const(load);
-    return autoload_assigned_by_current_p(ac) ? ac : 0;
-}
-
-static int
-autoload_defined_p(VALUE mod, ID id)
-{
-    rb_const_entry_t *ce = rb_const_lookup(mod, id);
-
-    // If there is no constant or the constant is not undefined (special marker for autoloading):
-    if (!ce || !UNDEF_P(ce->value)) {
-        // We are not autoloading:
-        return 0;
-    }
-
-    // Otherwise check if there is an autoload in flight right now:
-    return !rb_autoloading_value(mod, id, NULL, NULL);
+    struct autoload_assigned *aa = get_autoload_assigned(assigned);
+    return rb_mutex_owned_p(aa->mutex) ? aa : 0;
 }
 
 // An autoload being loaded by an execution context, linked from
@@ -2862,8 +2913,9 @@ struct rb_autoload_trigger {
     struct rb_autoload_trigger *prev;
     VALUE feature;
     VALUE box_value;
+    const rb_box_t *box; // where the feature is required
     VALUE mutex;
-    VALUE assigned; // [module, autoload_const, ...] assigned while loading
+    VALUE assigned; // [module, autoload_assigned, ...] assigned while loading
     bool loaded;
 };
 
@@ -2921,26 +2973,6 @@ autoload_feature_require(VALUE arg)
     return Qnil;
 }
 
-static rb_const_entry_t *const_lookup(struct rb_id_table *tbl, ID id);
-
-// The box in which the feature of the autoload is required.
-static const rb_box_t *
-autoload_box(const struct autoload_const *ac)
-{
-    if (rb_box_available() && BOX_OBJ_P(ac->box_value)) {
-        const rb_box_t *box = rb_get_box_t(ac->box_value);
-        if (box->top_self) return box;
-    }
-    return rb_current_box();
-}
-
-// The constant entry `id` of `mod` in the view of `box`.
-static rb_const_entry_t *
-const_lookup_in_box(VALUE mod, ID id, const rb_box_t *box)
-{
-    return const_lookup(RCLASSEXT_CONST_TBL(RCLASS_EXT_READABLE_IN_BOX(mod, box)), id);
-}
-
 // Publish (or, on failure, discard) the values assigned while loading, then
 // let the waiting execution contexts go.
 static VALUE
@@ -2953,28 +2985,19 @@ autoload_trigger_finish(VALUE arg)
 
     for (long i = 0; assigned && i < RARRAY_LEN(assigned); i += 2) {
         VALUE module = RARRAY_AREF(assigned, i);
-        VALUE autoload_const_value = RARRAY_AREF(assigned, i + 1);
-        struct autoload_const *ac = get_autoload_const(autoload_const_value);
+        VALUE autoload_assigned_value = RARRAY_AREF(assigned, i + 1);
+        struct autoload_assigned *aa = get_autoload_assigned(autoload_assigned_value);
 
-        if (!autoload_assigned_p(ac) || ac->mutex != trigger->mutex) continue;
+        // Assigned in the box where the feature is required:
+        rb_const_entry_t *ce = const_lookup_in_box(module, aa->name, trigger->box);
+        if (!ce || ce->u.autoload_const != autoload_assigned_value) continue;
 
-        // Assigned in the view of the box where the feature is required:
-        rb_const_entry_t *ce = const_lookup_in_box(module, ac->name, autoload_box(ac));
-        if (!ce || ce->u.autoload_const != autoload_const_value) continue;
-
-        if (!trigger->loaded || !UNDEF_P(ce->value)) {
-            RB_OBJ_WRITE(autoload_const_value, &ac->value, Qundef);
+        if (!trigger->loaded) {
+            RB_OBJ_WRITE(module, &ce->u.autoload_const, aa->autoload);
             continue;
         }
 
-        RB_VM_LOCKING() {
-            ce->flag = ac->flag | (ce->flag & (CONST_DEPRECATED | CONST_VISIBILITY_MASK));
-            RB_OBJ_WRITE(module, &ce->value, ac->value);
-            RB_OBJ_WRITE(module, &ce->u.file, ac->file);
-            ce->line = ac->line;
-            rb_clear_constant_cache_for_id(ac->name);
-        }
-        RB_OBJ_WRITE(autoload_const_value, &ac->value, Qundef);
+        autoload_set_value(module, aa->name, ce, aa->value, aa->file, aa->line, aa->flag);
     }
 
     rb_mutex_unlock(trigger->mutex);
@@ -2989,6 +3012,7 @@ autoload_trigger_load(struct autoload_const *ac)
         .prev = ec->autoload_trigger,
         .feature = ac->feature,
         .box_value = ac->box_value,
+        .box = autoload_box(ac),
         .mutex = rb_mutex_new(),
     };
 
@@ -3017,22 +3041,26 @@ rb_autoload_load(VALUE module, ID name)
     }
 
     while (1) {
+        VALUE autoload_assigned_value = autoload_assigned_entry(module, name);
         VALUE autoload_const_value = autoload_entry(module, name);
-        if (!autoload_const_value) return Qfalse;
-        struct autoload_const *ac = get_autoload_const(autoload_const_value);
 
-        if (autoload_assigned_p(ac)) {
-            VALUE mutex = ac->mutex;
-            if (rb_mutex_owned_p(mutex)) return Qfalse;
+        if (autoload_assigned_value) {
+            struct autoload_assigned *aa = get_autoload_assigned(autoload_assigned_value);
+            if (rb_mutex_owned_p(aa->mutex)) return Qfalse;
 
-            // Assigned while another execution context loads it: wait for it.
-            rb_mutex_lock(mutex);
-            rb_mutex_unlock(mutex);
+            // Assigned while another execution context autoloads it: wait for it.
+            rb_mutex_lock(aa->mutex);
+            rb_mutex_unlock(aa->mutex);
 
-            // The loader died without finishing (e.g. after fork):
-            if (ac->mutex == mutex) RB_OBJ_WRITE(autoload_const_value, &ac->value, Qundef);
+            // Left behind by a loader which died without finishing (e.g. after fork),
+            // or in a copy of the module:
+            if (autoload_assigned_entry(module, name) == autoload_assigned_value) {
+                RB_OBJ_WRITE(module, &rb_const_lookup(module, name)->u.autoload_const, aa->autoload);
+            }
         }
-        else {
+        else if (autoload_const_value) {
+            struct autoload_const *ac = get_autoload_const(autoload_const_value);
+
             // Being autoloaded by the current execution context, or requiring it would be circular:
             if (autoload_current_trigger(ac->feature) || rb_require_circular_p(ac->feature, true)) {
                 return Qfalse;
@@ -3040,25 +3068,18 @@ rb_autoload_load(VALUE module, ID name)
 
             autoload_trigger_load(ac);
 
-            // If the feature did not define the constant, we remove it completely:
-            ce = rb_const_lookup(module, name);
-            if (ce && UNDEF_P(ce->value) && autoload_entry(module, name) == autoload_const_value &&
-                !autoload_assigned_p(ac)) {
+            if (autoload_entry(module, name) == autoload_const_value) {
                 // Copy the constant from the box that registered the autoload into the current
                 // box. E.g., after a box B1 triggers the autoload, another box B2 with its own
                 // copy of the module still has it; referring to it in B2 comes here too, as the
                 // require does nothing.
                 rb_const_entry_t *loaded = const_lookup_in_box(module, name, autoload_box(ac));
                 if (loaded && !UNDEF_P(loaded->value)) {
-                    RB_VM_LOCKING() {
-                        ce->flag = loaded->flag | (ce->flag & (CONST_DEPRECATED | CONST_VISIBILITY_MASK));
-                        RB_OBJ_WRITE(module, &ce->value, loaded->value);
-                        RB_OBJ_WRITE(module, &ce->u.file, loaded->u.file);
-                        ce->line = loaded->line;
-                        rb_clear_constant_cache_for_id(name);
-                    }
+                    autoload_set_value(module, name, rb_const_lookup(module, name),
+                                       loaded->value, loaded->u.file, loaded->line, loaded->flag);
                 }
                 else {
+                    // If the feature did not define the constant, we remove it completely:
                     rb_const_remove(module, name);
 
                     if (module == rb_cObject) {
@@ -3080,7 +3101,11 @@ rb_autoload_load(VALUE module, ID name)
                 }
             }
         }
+        else {
+            return Qfalse;
+        }
 
+        RB_GC_GUARD(autoload_assigned_value);
         RB_GC_GUARD(autoload_const_value);
 
         ce = rb_const_lookup(module, name);
@@ -3101,15 +3126,18 @@ rb_autoload_at_p(VALUE mod, ID id, int recur)
     VALUE load;
     struct autoload_const *ac;
 
-    while (!autoload_defined_p(mod, id)) {
+    while (!(load = autoload_entry(mod, id))) {
+        // Assigned while another execution context autoloads it:
+        VALUE assigned = autoload_assigned_entry(mod, id);
+        if (assigned && !rb_mutex_owned_p(get_autoload_assigned(assigned)->mutex)) {
+            return get_autoload_const(get_autoload_assigned(assigned)->autoload)->feature;
+        }
         if (!recur) return Qnil;
         mod = RCLASS_SUPER(mod);
         if (!mod) return Qnil;
     }
-    load = autoload_entry(mod, id);
-    if (!load) return Qnil;
     ac = get_autoload_const(load);
-    return autoload_available_p(ac) ? ac->feature : Qnil;
+    return autoload_available_p(mod, id, ac) ? ac->feature : Qnil;
 }
 
 void
@@ -3177,13 +3205,13 @@ rb_const_search_from(VALUE klass, ID id, int exclude, int recurse, int visibilit
             rb_const_warn_if_deprecated(ce, tmp, id);
             value = ce->value;
             if (UNDEF_P(value)) {
-                struct autoload_const *ac;
+                struct autoload_assigned *aa;
                 if (am == tmp) break;
                 am = tmp;
-                ac = autoloading_const_entry(tmp, id);
-                if (ac) {
+                aa = autoloading_const_entry(tmp, id);
+                if (aa) {
                     if (found_in) { *found_in = tmp; }
-                    return ac->value;
+                    return aa->value;
                 }
                 rb_autoload_load(tmp, id);
                 continue;
@@ -3269,14 +3297,18 @@ rb_const_location_from(VALUE klass, ID id, int exclude, int recurse, int visibil
             }
 
             VALUE file = ce->u.file;
-            VALUE autoload_const_value = autoload_entry(klass, id);
-            if (autoload_const_value) {
-                struct autoload_const *autoload_const = get_autoload_const(autoload_const_value);
+            VALUE load = autoload_entry(klass, id);
+            VALUE assigned = autoload_assigned_entry(klass, id);
+            if (assigned) {
+                struct autoload_assigned *aa = get_autoload_assigned(assigned);
 
-                if (autoload_assigned_by_current_p(autoload_const)) {
-                    return rb_assoc_new(autoload_const->file, INT2NUM(autoload_const->line));
+                if (rb_mutex_owned_p(aa->mutex)) {
+                    return rb_assoc_new(aa->file, INT2NUM(aa->line));
                 }
-                file = autoload_const->autoload_call_file;
+                load = aa->autoload;
+            }
+            if (load) {
+                file = get_autoload_const(load)->autoload_call_file;
             }
 
             if (NIL_P(file)) return rb_ary_new();
@@ -3524,9 +3556,9 @@ rb_const_defined_0(VALUE klass, ID id, int exclude, int recurse, int visibility)
             if (visibility && RB_CONST_PRIVATE_P(ce)) {
                 return (int)Qfalse;
             }
-            if (UNDEF_P(ce->value)) {
+            if (UNDEF_P(ce->value) && !autoload_assigned_entry(tmp, id)) {
                 VALUE load = autoload_entry(tmp, id);
-                if (!load || !autoload_available_p(get_autoload_const(load)))
+                if (!load || !autoload_available_p(tmp, id, get_autoload_const(load)))
                     return (int)Qfalse;
             }
 
@@ -3716,25 +3748,34 @@ const_tbl_update(VALUE klass, ID id, VALUE val, VALUE file, int line)
         ce = (rb_const_entry_t *)value;
         if (UNDEF_P(ce->value)) {
             RUBY_ASSERT_CRITICAL_SECTION_ENTER();
+            VALUE autoload_assigned_value = autoload_assigned_entry(klass, id);
             VALUE autoload_const_value = autoload_entry(klass, id);
+            struct autoload_assigned *aa = autoload_assigned_value ? get_autoload_assigned(autoload_assigned_value) : NULL;
             struct autoload_const *ac = autoload_const_value ? get_autoload_const(autoload_const_value) : NULL;
-            struct rb_autoload_trigger *trigger = NULL;
+            struct rb_autoload_trigger *trigger;
 
-            if (ac && !UNDEF_P(val) &&
-                (autoload_assigned_by_current_p(ac) ||
-                 (!autoload_assigned_p(ac) && (trigger = autoload_current_trigger(ac->feature))))) {
+            if (!UNDEF_P(val) && aa && rb_mutex_owned_p(aa->mutex)) {
                 /* keep the value until the autoload finishes */
-                if (!autoload_assigned_p(ac)) {
-                    RB_OBJ_WRITE(autoload_const_value, &ac->mutex, trigger->mutex);
-                    if (!trigger->assigned) trigger->assigned = rb_ary_hidden_new(2);
-                    rb_ary_push(trigger->assigned, klass);
-                    rb_ary_push(trigger->assigned, autoload_const_value);
-                }
                 rb_clear_constant_cache_for_id(id);
-
-                RB_OBJ_WRITE(autoload_const_value, &ac->value, val);
-                RB_OBJ_WRITE(autoload_const_value, &ac->file, file);
-                ac->line = line;
+                RB_OBJ_WRITE(autoload_assigned_value, &aa->value, val);
+                RB_OBJ_WRITE(autoload_assigned_value, &aa->file, file);
+                aa->line = line;
+            }
+            else if (!UNDEF_P(val) && ac && (trigger = autoload_current_trigger(ac->feature))) {
+                /* keep the value until the autoload finishes, instead of the autoload */
+                autoload_assigned_value = TypedData_Make_Struct(0, struct autoload_assigned, &autoload_assigned_type, aa);
+                aa->name = id;
+                RB_OBJ_WRITE(autoload_assigned_value, &aa->value, val);
+                RB_OBJ_WRITE(autoload_assigned_value, &aa->file, file);
+                aa->line = line;
+                aa->flag = CONST_PUBLIC;
+                RB_OBJ_WRITE(autoload_assigned_value, &aa->mutex, trigger->mutex);
+                RB_OBJ_WRITE(autoload_assigned_value, &aa->autoload, autoload_const_value);
+                RB_OBJ_WRITE(klass, &ce->u.autoload_const, autoload_assigned_value);
+                if (!trigger->assigned) trigger->assigned = rb_ary_hidden_new(2);
+                rb_ary_push(trigger->assigned, klass);
+                rb_ary_push(trigger->assigned, autoload_assigned_value);
+                rb_clear_constant_cache_for_id(id);
             }
             else {
                 /* otherwise autoloaded constant, allow to override */
@@ -3819,7 +3860,7 @@ set_const_visibility(VALUE mod, int argc, const VALUE *argv,
     }
 
     for (i = 0; i < argc; i++) {
-        struct autoload_const *ac;
+        struct autoload_assigned *aa;
         VALUE val = argv[i];
         id = rb_check_id(&val);
         if (!id) {
@@ -3829,9 +3870,9 @@ set_const_visibility(VALUE mod, int argc, const VALUE *argv,
             ce->flag &= ~mask;
             ce->flag |= flag;
             if (UNDEF_P(ce->value)) {
-                if ((ac = autoloading_const_entry(mod, id))) {
-                    ac->flag &= ~mask;
-                    ac->flag |= flag;
+                if ((aa = autoloading_const_entry(mod, id))) {
+                    aa->flag &= ~mask;
+                    aa->flag |= flag;
                 }
             }
             rb_clear_constant_cache_for_id(id);
