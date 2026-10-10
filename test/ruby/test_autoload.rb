@@ -752,6 +752,23 @@ p Foo::Bar
     end
   end
 
+  def test_autoload_provided_feature_not_defining_constant
+    Dir.mktmpdir('autoload') do |tmpdir|
+      File.write("#{tmpdir}/autoload-empty.rb", "")
+      assert_separately(%W[-I #{tmpdir}], "#{<<-"begin;"}\n#{<<-"end;"}")
+      begin;
+        require 'autoload-empty'
+        module AutoloadEmpty
+          autoload :X, 'autoload-empty'
+        end
+        assert_warning(/Expected autoload-empty to define AutoloadEmpty::X/) do
+          assert_raise(NameError) { AutoloadEmpty::X }
+        end
+        assert_not_include AutoloadEmpty.constants, :X
+      end;
+    end
+  end
+
   def test_autoload_joining_thread_while_required_directly
     Dir.mktmpdir('autoload') do |tmpdir|
       File.write("#{tmpdir}/autoload-join.rb", "#{<<~'begin;'}\n#{<<~'end;'}")

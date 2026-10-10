@@ -2946,7 +2946,8 @@ check_autoload_required(VALUE mod, ID id, const char **loadingpath)
         return autoload_const_value;
     }
 
-    if (loadingpath && loading) {
+    // Require it even if provided, unless it is circular:
+    if (loadingpath) {
         *loadingpath = loading;
         return autoload_const_value;
     }
